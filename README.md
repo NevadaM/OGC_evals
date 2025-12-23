@@ -35,9 +35,10 @@ OGC_evals/
 │   ├── abstention.py   # Module for detecting model refusals
 │   ├── afg.py          # Atomic Fact Generator (with SAFE-style demons)
 │   ├── afv.py          # Automatic Fact Verifier (Entailment checks)
+│   ├── data_loader.py  # Dataset loading and validation (CSV/JSONL)
 │   ├── demos/          # Few-shot examples (demons) for AFG
 │   ├── main.py         # Orchestrator script for running evaluations
-│   └── model.py        # LLM Wrapper (currently Mock/CPU-based)
+│   └── model.py        # LLM Wrapper (Mock, HuggingFace, OpenAI API)
 ├── datasetsample.csv   # Sample input dataset (prompts + expected responses)
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
@@ -57,23 +58,34 @@ OGC_evals/
 
 ## Usage
 
-To run the evaluation suite on the provided sample dataset:
+To run the evaluation suite on the provided sample dataset (defaults to **Mock Mode**):
 
 ```bash
 python -m ogc_eval.main
 ```
 
-This will:
-1. Load `datasetsample.csv`.
-2. Run the full pipeline (Abstention -> AFG -> AFV).
-3. Output the detailed metrics to `eval_results.csv`.
+To use a real model, instantiate `OGCEvaluator` in a script with `mock=False` and provide an API key or HuggingFace model path:
+
+```python
+from ogc_eval.main import OGCEvaluator
+
+# OpenAI
+evaluator = OGCEvaluator(model_name="gpt-4", api_key="sk-...", mock=False)
+
+# HuggingFace (Local GPU)
+evaluator = OGCEvaluator(model_name="meta-llama/Llama-3-8b", device="cuda", mock=False)
+
+evaluator.evaluate_dataset("datasetsample.csv")
+```
 
 ## Current Status
 
 *   **Architecture**: The core modular architecture is complete and self-contained within the `ogc_eval` package. Dependencies on external `long-form-factuality` folders have been removed.
-*   **Model Integration**: The system is currently running on a **Mock LLM Wrapper** (`ogc_eval/model.py`) to facilitate development without GPU access. 
-    *   *Action Required*: To perform real evaluations, update `ogc_eval/model.py` to initialize a real Transformer model (e.g., Llama-3, Mistral) or connect to an API endpoint.
-*   **Dataset**: currently mocks "generated responses" by copying ground truth data for pipeline verification.
+*   **Model Integration**: `ogc_eval/model.py` is fully implemented to support:
+    *   **Mock Mode**: For testing logic without resources.
+    *   **OpenAI API**: Auto-detects `OPENAI_API_KEY` or accepts explicit key.
+    *   **HuggingFace Transformers**: Loads local models (supports `device_map="auto"`).
+*   **Dataset**: Pipeline currently supports loading CSV/JSONL. If 'generated_response' is missing, it mocks it by copying ground truth data for pipeline verification.
 
 ## References
 

@@ -31,16 +31,19 @@ class FactVerifier:
         reference_text = "\n".join([f"- {c}" for c in reference_claims])
         
         for claim in hypothesis_claims:
-            prompt = f"""Premise:
+            messages = [
+                {"role": "system", "content": "You are an intelligent fact-checking system. Determine if the hypothesis is entailed by the premise."},
+                {"role": "user", "content": f"""Premise:
 {reference_text}
 
 Hypothesis:
 {claim}
 
 Does the premise entail the hypothesis? That is, is the hypothesis supported by the facts in the premise?
-Answer only with "YES" or "NO".
-"""
-            output = self.model.classify(prompt, options=["YES", "NO"])
+Answer only with "YES" or "NO"."""}
+            ]
+            
+            output = self.model.classify(messages, options=["YES", "NO"])
             if "YES" in output.upper():
                 supported_count += 1
         

@@ -2,29 +2,29 @@
 ## not checked
 
 import pandas as pd
-import os
 from tqdm import tqdm
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from .model import LLMWrapper
 from .afg import AtomicFactGenerator
 from .abstention import AbstentionDetector
 from .afv import FactVerifier
+from .data_loader import DataLoader
 
 class OGCEvaluator:
-    def __init__(self, model_name: str = "gpt2", device: str = "cpu"):
-        self.model = LLMWrapper(model_name, device)
+    def __init__(self, model_name: str = "gpt2", device: str = "cpu", api_key: Optional[str] = None, mock: bool = False):
+        self.model = LLMWrapper(model_name, device, api_key=api_key, mock=mock)
         self.afg = AtomicFactGenerator(self.model)
         self.abstention_detector = AbstentionDetector(self.model)
         self.verifier = FactVerifier(self.model)
 
     def evaluate_dataset(self, csv_path: str, output_path: str = "eval_results.csv"):
-        print(f"Loading dataset from {csv_path}...")
-        df = pd.read_csv(csv_path)
+        loader = DataLoader(csv_path)
+        df = loader.load()
         
         # Mocking 'generated_response' if not present
         if 'generated_response' not in df.columns:
-            print("Column 'generated_response' not found. Creating mock responses for testing.")
+            print("Column 'generated_response' not found. Creating mock responses for testing (copying ground truth).")
             # Mock: use the ground truth but truncate it or modify it slightly
             df['generated_response'] = df['response'].apply(lambda x: x) 
 
@@ -76,5 +76,6 @@ class OGCEvaluator:
         return result_df
 
 if __name__ == "__main__":
-    evaluator = OGCEvaluator()
+    # Default to mock mode for safe execution without GPU/API keys
+    evaluator = OGCEvaluator(mock=True)
     evaluator.evaluate_dataset("datasetsample.csv")
