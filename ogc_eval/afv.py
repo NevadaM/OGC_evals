@@ -1,3 +1,12 @@
+## Automatic Fact Verification (AFV)
+## checks a set of claims "a" made by a model
+## against a set of claims "c" made in expected response
+## and with LLM-as-a-judge sees how many in "a" are
+## supported by "c". Reports the proportion of accurate
+## claims at K -- K being the length of c.
+
+## NEEDS CHECKING
+
 from typing import List, Tuple
 from .model import LLMWrapper
 

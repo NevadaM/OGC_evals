@@ -1,3 +1,16 @@
+## wrapper object for LLMs
+## this is generic and can be used for models across the architecture:
+## 1. for a model to generate the dataset
+## 2. for a model to be evaluated against the dataset
+## 3. for a model to perform AFG
+## 4. for a model to perform AFV (with classify method)
+## 5. for a model to do abstention detection (if necessary? with classify method)
+
+## currently only mock architecture
+## needs to take HuggingFace transformer OR an API key
+## and, importantly, it needs to facilitate different ways of 
+## having system prompts and user prompts, with templating
+
 from typing import List, Optional
 import os
 

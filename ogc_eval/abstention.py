@@ -1,3 +1,20 @@
+## abstention detection
+## currently goes before AFG
+## as an LLM-as-a-judge which I don't think I want to use
+
+## essentially needs to detect model responses to
+## prompts that are dodging the question
+## this is to avoid wasting time in afg/afv
+## and also measure where LLMs are less confident
+
+## what are our options for abstention detection?
+## FActScore does it with simple keywords
+## SAFE doesn't do it at all
+## VeriScore doesn't really go beyonf FActScore
+## "Do-not-answer" [https://arxiv.org/pdf/2308.13387] has a PLM-based classifier <600MB
+## https://github.com/Libr-AI/do-not-answer/blob/main/notebooks/4_automatic_evaluation_PLM.ipynb 
+## that classifies against five options
+
 from .model import LLMWrapper
 
 class AbstentionDetector:

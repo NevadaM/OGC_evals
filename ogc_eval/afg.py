@@ -1,3 +1,17 @@
+## Atomised Fact Generation (AFG)
+## To split either expected responses or 
+## evaluated responses into lists of claims
+## that can be enumerated and evaluated afterwards
+
+## this is an almost exact reconstruction of SAFE's AFG
+## although SAFE tries to make search queries
+## whereas we need declarative statements a la FActScore
+## in any case this works by using NLTK and spacy and an LLM
+## to first split text into sentences
+## then, upon retrieving examples from "demos" (or demons?)
+## using them as few-shot examples to split sentences into 
+## claims afterward
+
 import json
 import os
 import re
