@@ -45,6 +45,13 @@ class AtomicFactGenerator:
         self.nlp = SPACY_MODEL
         self.model = model
         self.demon_path = demon_path
+        self.prompt_dir = os.path.join(os.path.dirname(__file__), "prompts")
+        
+        with open(os.path.join(self.prompt_dir, "afg_system.txt"), "r") as f:
+            self.system_prompt = f.read().strip()
+            
+        with open(os.path.join(self.prompt_dir, "afg_user.txt"), "r") as f:
+            self.user_prompt_template = f.read().strip()
         
         if os.path.exists(self.demon_path):
             with open(self.demon_path, 'r') as f:
@@ -85,17 +92,7 @@ class AtomicFactGenerator:
         return self._parse_output(output)
 
     def _construct_messages(self, sentence: str) -> List[Dict[str, str]]:
-        instructions = (
-            "Instructions:\n"
-            "1. You are given a sentence. Your task is to break the sentence down into a list of atomic facts.\n"
-            "2. An atomic fact is a sentence containing a singular piece of information.\n"
-            "3. Each atomic fact in the outputted list should check a different piece of information.\n"
-            "4. Use the previous examples to learn how to do this.\n"
-            "5. You should only output the atomic facts as a list, with each item starting with \"- \". Do not include other formatting.\n"
-            "6. Your task is to do this for the last sentence that is given."
-        )
-        
-        messages = [{"role": "system", "content": instructions}]
+        messages = [{"role": "system", "content": self.system_prompt}]
 
         if self.bm25:
             # Retrieve similar demons
@@ -103,14 +100,14 @@ class AtomicFactGenerator:
             top_matches = self.bm25.get_top_n(tokenized_query, list(self.demons.keys()), n=3)
 
             for match in top_matches:
-                messages.append({"role": "user", "content": f"Please breakdown the following sentence into independent facts: {match}"})
+                messages.append({"role": "user", "content": self.user_prompt_template.format(sentence=match)})
                 
                 demon_facts = ""
                 for fact in self.demons[match]:
                     demon_facts += f"- {fact}\n"
                 messages.append({"role": "assistant", "content": demon_facts.strip()})
 
-        messages.append({"role": "user", "content": f"Please breakdown the following sentence into independent facts: {sentence}"})
+        messages.append({"role": "user", "content": self.user_prompt_template.format(sentence=sentence)})
         return messages
     def _parse_output(self, output: str) -> List[str]:
         # Parse lines starting with "- "

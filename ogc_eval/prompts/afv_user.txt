@@ -1,0 +1,8 @@
+Premise:
+{reference_text}
+
+Hypothesis:
+{claim}
+
+Does the premise entail the hypothesis? That is, is the hypothesis supported by the facts in the premise?
+Answer only with "YES" or "NO".

@@ -1,0 +1,1 @@
+Please breakdown the following sentence into independent facts: {sentence}

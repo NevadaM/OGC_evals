@@ -7,12 +7,20 @@
 
 ## NEEDS CHECKING
 
+import os
 from typing import List, Tuple
 from .model import LLMWrapper
 
 class FactVerifier:
     def __init__(self, model: LLMWrapper):
         self.model = model
+        self.prompt_dir = os.path.join(os.path.dirname(__file__), "prompts")
+        
+        with open(os.path.join(self.prompt_dir, "afv_system.txt"), "r") as f:
+            self.system_prompt = f.read().strip()
+            
+        with open(os.path.join(self.prompt_dir, "afv_user.txt"), "r") as f:
+            self.user_prompt_template = f.read().strip()
 
     def verify(self, hypothesis_claims: List[str], reference_claims: List[str]) -> Tuple[float, int]:
         """
@@ -32,15 +40,8 @@ class FactVerifier:
         
         for claim in hypothesis_claims:
             messages = [
-                {"role": "system", "content": "You are an intelligent fact-checking system. Determine if the hypothesis is entailed by the premise."},
-                {"role": "user", "content": f"""Premise:
-{reference_text}
-
-Hypothesis:
-{claim}
-
-Does the premise entail the hypothesis? That is, is the hypothesis supported by the facts in the premise?
-Answer only with "YES" or "NO"."""}
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": self.user_prompt_template.format(reference_text=reference_text, claim=claim)}
             ]
             
             output = self.model.classify(messages, options=["YES", "NO"])

@@ -87,6 +87,13 @@ evaluator.evaluate_dataset("datasetsample.csv")
     *   **HuggingFace Transformers**: Loads local models (supports `device_map="auto"`).
 *   **Dataset**: Pipeline currently supports loading CSV/JSONL. If 'generated_response' is missing, it mocks it by copying ground truth data for pipeline verification.
 
+## Notes & Idiosyncrasies
+
+*   **Mock Mode Default**: The system defaults to `mock=True` to allow running the pipeline without API keys or GPUs. In this mode, the LLM generates static placeholder text (e.g., "- Mock atomic fact 1"). Ensure you set `mock=False` for actual evaluations.
+*   **Abstention Detection Model**: The abstention module uses a specialized local model (`LibrAI/longformer-action-ro`). This model is approximately **600MB** and will be downloaded upon first use. It is designed to run efficiently on a CPU, so it remains active even when the main evaluator is in "Mock Mode".
+*   **Data Fallback**: If the input dataset (CSV/JSONL) is missing the `generated_response` column (i.e., you are testing the pipeline structure rather than a model's output), the system will automatically copy the ground truth `response` into `generated_response`. This facilitates pipeline testing but means "perfect" scores in this scenario are an artifact of this fallback.
+*   **Spacy Dependency**: The Atomic Fact Generator (AFG) strictly requires the `en_core_web_sm` Spacy model for sentence splitting. Ensure this is downloaded as per the installation instructions.
+
 ## References
 
 *   **FActScore**: Min et al. (2023). [FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation](https://arxiv.org/abs/2305.14251).

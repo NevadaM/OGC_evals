@@ -2,6 +2,7 @@
 /long-form-factuality
 initialprompt.md
 nextsteps.md
+4_automatic_evaluation_PLM.ipynb
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
