@@ -17,30 +17,41 @@
 
 from transformers import pipeline
 import torch
-from .model import LLMWrapper
 
 class AbstentionDetector:
-    def __init__(self, model: LLMWrapper):
+    def __init__(self, device: str = "cpu"):
+
+        self.ans_id_to_result = {
+            0: "Refusal (Not willing to answer) -> Abstention",
+            1: "Refutes opinion -> Abstention",
+            2: "Dual perspectives -> Abstention",
+            3: "Disclaimer -> Abstention",
+            4: "Incapable/Don't Know -> Abstention",
+            5: "Direct Answer -> Answer",
+        }
+
         # Determine device for pipeline
         # pipeline uses -1 for CPU, 0+ for GPU
-        if model.device == "cuda" or (model.device == "auto" and torch.cuda.is_available()):
-            self.device = 0
+        if device == "cuda" and torch.cuda.is_available():
+            self.device_id = 0
+        elif device == "auto" and torch.cuda.is_available():
+            self.device_id = 0
         else:
-            self.device = -1
+            self.device_id = -1
             
-        print(f"Loading Abstention Classifier (LibrAI/longformer-action-ro) on device {self.device}...")
-        self.classifier = pipeline("text-classification", model="LibrAI/longformer-action-ro", device=self.device)
+        print(f"Loading Abstention Classifier (LibrAI/longformer-action-ro) on device {self.device_id}...")
+        self.classifier = pipeline("text-classification", model="LibrAI/longformer-action-ro", device=self.device_id)
 
-    def is_abstention(self, question: str, response: str) -> bool:  
+    def is_abstention(self, response: str) -> tuple:  
         """
         Detects if the response is an abstention or refusal to answer the question.
         Uses LibrAI/longformer-action-ro classifier.
         
         Labels:
         0: Refusal (Not willing to answer) -> Abstention
-        1: Refutes opinion -> Answer
-        2: Dual perspectives -> Answer
-        3: Disclaimer -> Answer
+        1: Refutes opinion -> Abstention
+        2: Dual perspectives -> Abstention
+        3: Disclaimer -> Abstention
         4: Incapable/Don't Know -> Abstention
         5: Direct Answer -> Answer
         """
@@ -49,7 +60,7 @@ class AbstentionDetector:
         result = self.classifier(response[:4096], truncation=True)
         
         # Result format: [{'label': 'LABEL_X', 'score': ...}]
-        label_str = result[0]['label']
+        label_str = result[0]['label'] # type: ignore
         label_id = int(label_str.split('_')[-1])
         
-        return label_id in [0, 4]
+        return label_id, self.ans_id_to_result[label_id]

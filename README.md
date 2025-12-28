@@ -14,7 +14,7 @@ The evaluation pipeline consists of three distinct stages:
 Before checking for factual accuracy, the system determines if the model actually attempted to answer the prompt.
 - **Goal**: Distinguish between "hallucinations" (incorrect answers) and "refusals" (e.g., "I cannot answer that").
 - **Metric**: Abstention Rate.
-- **Implementation**: `ogc_eval/abstention.py` uses an LLM classifier to detect refusal patterns.
+- **Implementation**: `ogc_eval/abstention.py` uses a **PLM-based classifier** (`LibrAI/longformer-action-ro`) to detect refusal patterns.
 
 ### 2. Atomic Fact Generation (AFG)
 Responses (both Ground Truth and Generated) are decomposed into individual, self-contained "atomic facts".
@@ -32,14 +32,16 @@ An "LLM-as-a-judge" compares the atomic facts extracted from the model's respons
 ```
 OGC_evals/
 ├── ogc_eval/
-│   ├── abstention.py   # Module for detecting model refusals
+│   ├── abstention.py   # Module for detecting model refusals (PLM-based)
 │   ├── afg.py          # Atomic Fact Generator (with SAFE-style demons)
 │   ├── afv.py          # Automatic Fact Verifier (Entailment checks)
 │   ├── data_loader.py  # Dataset loading and validation (CSV/JSONL)
 │   ├── demos/          # Few-shot examples (demons) for AFG
+│   ├── prompts/        # System and User prompts for LLM tasks
 │   ├── main.py         # Orchestrator script for running evaluations
 │   └── model.py        # LLM Wrapper (Mock, HuggingFace, OpenAI API)
 ├── datasetsample.csv   # Sample input dataset (prompts + expected responses)
+├── testing             # Archive of scripts used to test components of the pipeline
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
 ```

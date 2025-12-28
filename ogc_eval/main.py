@@ -1,5 +1,5 @@
 # main
-## not checked
+## OUTDATED
 
 import pandas as pd
 from tqdm import tqdm
@@ -15,7 +15,7 @@ class OGCEvaluator:
     def __init__(self, model_name: str = "gpt2", device: str = "cpu", api_key: Optional[str] = None, mock: bool = False):
         self.model = LLMWrapper(model_name, device, api_key=api_key, mock=mock)
         self.afg = AtomicFactGenerator(self.model)
-        self.abstention_detector = AbstentionDetector(self.model)
+        self.abstention_detector = AbstentionDetector(device=device)
         self.verifier = FactVerifier(self.model)
 
     def evaluate_dataset(self, csv_path: str, output_path: str = "eval_results.csv"):
