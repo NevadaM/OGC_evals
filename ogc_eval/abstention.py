@@ -61,6 +61,7 @@ class AbstentionDetector:
         
         # Result format: [{'label': 'LABEL_X', 'score': ...}]
         label_str = result[0]['label'] # type: ignore
+        score = result[0]['score'] # type: ignore
         label_id = int(label_str.split('_')[-1])
         
-        return label_id, self.ans_id_to_result[label_id]
+        return label_id, self.ans_id_to_result[label_id], score
