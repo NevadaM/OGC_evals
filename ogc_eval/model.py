@@ -4,7 +4,7 @@
 ## 2. for a model to be evaluated against the dataset
 ## 3. for a model to perform AFG
 ## 4. for a model to perform AFV (with classify method)
-## 5. for a model to do abstention detection
+## 5. for a model to do abstention detection if necessary
 
 ## Supports:
 ## - Mock mode (default, for testing without GPU/API)
@@ -37,7 +37,7 @@ class LLMWrapper:
 
     def _set_mock_mode(self):
         self.mode = "mock"
-        print(f"Initialized LLMWrapper in MOCK mode with model: {self.model_name}")
+        print(f"Initialized LLMWrapper in MOCK mode")
 
     def _init_api(self):
         try:
@@ -83,23 +83,24 @@ class LLMWrapper:
     def generate(self, 
                  input_data: Union[str, List[Dict[str, str]]], 
                  max_new_tokens: int = 256, 
-                 temperature: float = 0.7, 
-                 stop_sequences: Optional[List[str]] = None) -> str:
+                 temperature: float = 1, # NOTE: temperature = 1
+                 stop_sequences: Optional[List[str]] = None,
+                 return_input_data: bool = False) -> str:
         
         if self.mode == "mock":
             return self._generate_mock(input_data)
         elif self.mode == "api":
-            return self._generate_api(input_data, max_new_tokens, temperature, stop_sequences)
+            return self._generate_api(input_data, max_new_tokens, temperature, stop_sequences, return_input_data)
         elif self.mode == "hf":
-            return self._generate_hf(input_data, max_new_tokens, temperature)
+            return self._generate_hf(input_data, max_new_tokens, temperature, return_input_data)
         return ""
 
     def _generate_mock(self, input_data: Any) -> str:
         prompt_preview = str(input_data)[:100]
         print(f"--- [Mock LLM Call] ---\nInput: {prompt_preview}...\n-----------------------")
-        return "- Mock atomic fact 1\n- Mock atomic fact 2"
+        return "Output Output Output"
 
-    def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]]) -> str:
+    def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]], return_input_data: bool) -> str:
         try:
             messages = [{"role": "user", "content": input_data}] if isinstance(input_data, str) else input_data
             
@@ -116,7 +117,7 @@ class LLMWrapper:
             print(f"API Generation Error: {e}")
             return ""
 
-    def _generate_hf(self, input_data: Union[str, List[Dict[str, str]]], max_new_tokens: int, temperature: float) -> str:
+    def _generate_hf(self, input_data: Union[str, List[Dict[str, str]]], max_new_tokens: int, temperature: float, return_input_data: bool) -> str:
         import torch
         
         if isinstance(input_data, list):
@@ -142,7 +143,12 @@ class LLMWrapper:
             )
         
         generated_ids = outputs[0][inputs.input_ids.shape[1]:]
-        return self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+        final = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+
+        if return_input_data:
+            return "[INPUT " + input_data + "]" + final
+        else:
+            return final
 
     def classify(self, input_data: Union[str, List[Dict[str, str]]], options: List[str]) -> str:
         if self.mode == "mock":
