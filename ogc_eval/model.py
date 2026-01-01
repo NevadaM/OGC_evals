@@ -146,7 +146,7 @@ class LLMWrapper:
         final = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
 
         if return_input_data:
-            return "[INPUT " + input_data + "]" + final
+            return "[INPUT " + input_data + "]" + final # type: ignore
         else:
             return final
 
