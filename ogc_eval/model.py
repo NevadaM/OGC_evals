@@ -15,6 +15,9 @@
 
 from typing import List, Optional, Union, Dict, Any
 import os
+from .logger import get_module_logger
+
+logger = get_module_logger("model")
 
 class LLMWrapper:
     def __init__(self, model_name: str, device: str = "cpu", api_key: Optional[str] = None, mock: bool = False):
@@ -37,7 +40,7 @@ class LLMWrapper:
 
     def _set_mock_mode(self):
         self.mode = "mock"
-        print(f"Initialized LLMWrapper in MOCK mode")
+        logger.info(f"Initialized LLMWrapper in MOCK mode")
 
     def _init_api(self):
         try:
@@ -49,9 +52,9 @@ class LLMWrapper:
             
             self.client = openai.OpenAI(api_key=key)
             self.mode = "api"
-            print(f"Initialized LLMWrapper in API mode with model: {self.model_name}")
+            logger.info(f"Initialized LLMWrapper in API mode with model: {self.model_name}")
         except Exception as e:
-            print(f"Error initializing API client: {e}. Falling back to mock.")
+            logger.warning(f"Error initializing API client: {e}. Falling back to mock.")
             self._set_mock_mode()
 
     def _init_hf(self):
@@ -59,7 +62,7 @@ class LLMWrapper:
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
             
-            print(f"Loading HF model: {self.model_name} onto {self.device}...")
+            logger.info(f"Loading HF model: {self.model_name} onto {self.device}...")
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             
             if self.tokenizer.pad_token is None:
@@ -75,9 +78,9 @@ class LLMWrapper:
                 self.model = self.model.to(self.device)
             
             self.mode = "hf"
-            print(f"Initialized LLMWrapper in HF mode with model: {self.model_name} on {self.device}")
+            logger.info(f"Initialized LLMWrapper in HF mode with model: {self.model_name} on {self.device}")
         except Exception as e:
-            print(f"Failed to load HF model: {e}. Falling back to mock.")
+            logger.warning(f"Failed to load HF model: {e}. Falling back to mock.")
             self._set_mock_mode()
 
     def generate(self, 
@@ -97,7 +100,7 @@ class LLMWrapper:
 
     def _generate_mock(self, input_data: Any) -> str:
         prompt_preview = str(input_data)[:100]
-        print(f"--- [Mock LLM Call] ---\nInput: {prompt_preview}...\n-----------------------")
+        logger.debug(f"--- [Mock LLM Call] ---\nInput: {prompt_preview}...\n-----------------------")
         return "Output Output Output"
 
     def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]], return_input_data: bool) -> str:
@@ -114,7 +117,7 @@ class LLMWrapper:
             content = response.choices[0].message.content
             return content if content else ""
         except Exception as e:
-            print(f"API Generation Error: {e}")
+            logger.error(f"API Generation Error: {e}")
             return ""
 
     def _generate_hf(self, input_data: Union[str, List[Dict[str, str]]], max_new_tokens: int, temperature: float, return_input_data: bool) -> str:

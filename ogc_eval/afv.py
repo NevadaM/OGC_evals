@@ -10,6 +10,9 @@
 import os
 from typing import List, Tuple
 from .model import LLMWrapper
+from .logger import get_module_logger
+
+logger = get_module_logger("afv")
 
 class FactVerifier:
     def __init__(self, model: LLMWrapper):
@@ -39,6 +42,7 @@ class FactVerifier:
         reference_text = "\n".join([f"- {c}" for c in reference_claims])
         
         for claim in hypothesis_claims:
+            logger.debug(f"Verifying claim: {claim[:50]}...")
             messages = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": self.user_prompt_template.format(reference_text=reference_text, claim=claim)}

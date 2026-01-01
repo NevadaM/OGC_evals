@@ -35,13 +35,16 @@ OGC_evals/
 │   ├── abstention.py   # Module for detecting model refusals (PLM-based)
 │   ├── afg.py          # Atomic Fact Generator (with SAFE-style demons)
 │   ├── afv.py          # Automatic Fact Verifier (Entailment checks)
-│   ├── data_loader.py  # Dataset loading and validation (CSV/JSONL)
+│   ├── data_loader.py  # Dataset loading, validation, and batching
 │   ├── demos/          # Few-shot examples (demons) for AFG
+│   ├── logger.py       # Centralized logging configuration (Console + File)
 │   ├── prompts/        # System and User prompts for LLM tasks
+│   ├── result_writer.py# Output handler (CSV results + Summary statistics)
 │   ├── main.py         # Orchestrator script for running evaluations
 │   └── model.py        # LLM Wrapper (Mock, HuggingFace, OpenAI API)
+├── logs/               # Directory for execution logs
+├── testing/            # Archive of component tests
 ├── datasetsample.csv   # Sample input dataset (prompts + expected responses)
-├── testing             # Archive of scripts used to test components of the pipeline
 ├── requirements.txt    # Python dependencies
 └── README.md           # This file
 ```
@@ -66,21 +69,11 @@ To run the evaluation suite on the provided sample dataset (defaults to **Mock M
 python -m ogc_eval.main
 ```
 
+### Outputs & Logging
+- **Results**: Saved to `eval_results_{timestamp}.csv` (raw data) and `eval_results_{timestamp}_summary.txt` (statistics).
+- **Logs**: Execution traces are saved to `logs/ogc_eval_{timestamp}.log`.
+
 To use a real model, instantiate `OGCEvaluator` in a script with `mock=False` and provide an API key or HuggingFace model path:
-
-```python
-from ogc_eval.main import OGCEvaluator
-
-# OpenAI
-evaluator = OGCEvaluator(model_name="gpt-4", api_key="sk-...", mock=False)
-
-# HuggingFace (Local GPU)
-evaluator = OGCEvaluator(model_name="meta-llama/Llama-3-8b", device="cuda", mock=False)
-
-evaluator.evaluate_dataset("datasetsample.csv")
-```
-
-## Current Status
 
 *   **Architecture**: The core modular architecture is complete and self-contained within the `ogc_eval` package. Dependencies on external `long-form-factuality` folders have been removed.
 *   **Model Integration**: `ogc_eval/model.py` is fully implemented to support:

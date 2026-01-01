@@ -21,6 +21,9 @@ import spacy
 from typing import List, Tuple, Dict, Any
 
 from .model import LLMWrapper
+from .logger import get_module_logger
+
+logger = get_module_logger("afg")
 
 # Ensure NLTK data is downloaded
 try:
@@ -37,7 +40,7 @@ except LookupError:
 try:
     SPACY_MODEL = spacy.load('en_core_web_sm')
 except OSError:
-    print("Spacy model 'en_core_web_sm' not found. Please install it using `python -m spacy download en_core_web_sm`.")
+    logger.warning("Spacy model 'en_core_web_sm' not found. Please install it using `python -m spacy download en_core_web_sm`.")
     SPACY_MODEL = None
 
 class AtomicFactGenerator:
@@ -60,7 +63,7 @@ class AtomicFactGenerator:
             tokenized_corpus = [doc.split(' ') for doc in self.demons.keys()]
             self.bm25 = rank_bm25.BM25Okapi(tokenized_corpus)
         else:
-            print(f"Warning: Demon file not found at {self.demon_path}. AFG will run without few-shot examples.")
+            logger.warning(f"Demon file not found at {self.demon_path}. AFG will run without few-shot examples.")
             self.demons = {}
             self.bm25 = None
 
@@ -87,6 +90,7 @@ class AtomicFactGenerator:
         return tokenize.sent_tokenize(text)
 
     def _get_atoms_for_sentence(self, sentence: str) -> List[str]:  
+        logger.debug(f"Atomizing sentence: {sentence[:50]}...")
         messages = self._construct_messages(sentence)
         output = self.model.generate(messages)
         return self._parse_output(output)

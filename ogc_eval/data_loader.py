@@ -1,6 +1,9 @@
 import pandas as pd
 import os
 from typing import List, Dict, Optional, Any, Iterator
+from .logger import get_module_logger
+
+logger = get_module_logger("data_loader")
 
 class DataLoader:
     """
@@ -26,7 +29,7 @@ class DataLoader:
         if not os.path.exists(self.file_path):
             raise FileNotFoundError(f"File not found: {self.file_path}")
             
-        print(f"Loading dataset from {self.file_path}...")
+        logger.info(f"Loading dataset from {self.file_path}...")
         
         try:
             if self.file_path.lower().endswith('.csv'):
@@ -65,17 +68,17 @@ class DataLoader:
         
         # Handle generated_response
         if 'generated_response' not in self.df.columns:
-            print("Notice: 'generated_response' column not found. Copying 'response' (ground truth) to 'generated_response' for pipeline testing.")
+            logger.info("Notice: 'generated_response' column not found. Copying 'response' (ground truth) to 'generated_response' for pipeline testing.")
             self.df['generated_response'] = self.df['response'].copy()
         else:
-            print("Found 'generated_response' column. Using provided model outputs.")
+            logger.info("Found 'generated_response' column. Using provided model outputs.")
             
         # Ensure no NaN values in critical columns
         if self.df[self.REQUIRED_COLUMNS + ['generated_response']].isnull().any().any():
-            print("Warning: Null values found in critical columns. Dropping incomplete rows.")
+            logger.warning("Warning: Null values found in critical columns. Dropping incomplete rows.")
             self.df.dropna(subset=self.REQUIRED_COLUMNS + ['generated_response'], inplace=True)
             
-        print(f"Dataset loaded successfully with {len(self.df)} rows.")
+        logger.info(f"Dataset loaded successfully with {len(self.df)} rows.")
 
     def get_batches(self, batch_size: int = 1) -> Iterator[List[Dict[str, Any]]]:
         """

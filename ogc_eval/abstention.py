@@ -17,6 +17,9 @@
 
 from transformers import pipeline
 import torch
+from .logger import get_module_logger
+
+logger = get_module_logger("abstention")
 
 class AbstentionDetector:
     def __init__(self, device: str = "cpu"):
@@ -39,7 +42,7 @@ class AbstentionDetector:
         else:
             self.device_id = -1
             
-        print(f"Loading Abstention Classifier (LibrAI/longformer-action-ro) on device {self.device_id}...")
+        logger.info(f"Loading Abstention Classifier (LibrAI/longformer-action-ro) on device {self.device_id}...")
         self.classifier = pipeline("text-classification", model="LibrAI/longformer-action-ro", device=self.device_id)
 
     def is_abstention(self, response: str) -> tuple:  

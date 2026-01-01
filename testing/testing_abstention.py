@@ -28,7 +28,7 @@ for response in sample_responses:
     answer = detector.is_abstention(response)
     print(answer)
 
-# returns 5s for everything except third answer, which is a 1 (refutes opinion)
+# returns 5s for everything except third answer, which is a 1 (refutes opinion) at 98% confidence?
 # need to determine error rate / confidence intervals
 # should ensure in expected response generation that models do not generate something
 # that could be misconstrued as one of these.
