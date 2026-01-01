@@ -4,94 +4,106 @@
 
 OGC Evals is a robust evaluation framework designed to benchmark Large Language Models (LLMs) on "citizen queries"—open-ended, prompt-response interactions typical of government or civic information seeking. 
 
-This project implements a **FActScore-style** evaluation pipeline, enhancing the original methodology by integrating insights from **SAFE** (Search-Augmented Factuality Evaluators) and **VeriScore**. The goal is to provide granular metrics on model performance, specifically focusing on factuality and the ability to answer questions without unnecessary hallucination or improper abstention.
+It implements a **FActScore-style** evaluation pipeline, enhancing the original methodology by integrating insights from **SAFE** (Search-Augmented Factuality Evaluators) and **VeriScore**.
 
-## Methodology
+## Workflow & Usage
 
-The evaluation pipeline consists of three distinct stages:
+The evaluation process is split into two distinct stages to maximize efficiency and robustness.
 
-### 1. Abstention Detection
-Before checking for factual accuracy, the system determines if the model actually attempted to answer the prompt.
-- **Goal**: Distinguish between "hallucinations" (incorrect answers) and "refusals" (e.g., "I cannot answer that").
-- **Metric**: Abstention Rate.
-- **Implementation**: `ogc_eval/abstention.py` uses a **PLM-based classifier** (`LibrAI/longformer-action-ro`) to detect refusal patterns.
+### 1. Preparation (`prepare`)
+**Goal:** Pre-compute Atomic Facts for the Ground Truth responses.
+**Why:** Running Atomic Fact Generation (AFG) on the ground truth for every evaluation run is redundant. This step runs it once and saves a "Golden Dataset".
 
-### 2. Atomic Fact Generation (AFG)
-Responses (both Ground Truth and Generated) are decomposed into individual, self-contained "atomic facts".
-- **Approach**: Adapted from the **SAFE** architecture but modified to produce **declarative statements** rather than search queries.
-- **Mechanism**: Utilizes a "demon" retrieval system (located in `ogc_eval/demos`) to dynamically inject relevant few-shot examples into the system prompt based on the input text. This ensures the atomization is context-aware and robust.
-- **Implementation**: `ogc_eval/afg.py`.
+```bash
+# Basic usage (Mock mode)
+python -m ogc_eval.main prepare --input datasetsample.csv --mock --output datasetsample_prepped.csv
 
-### 3. Automatic Fact Verification (AFV)
-An "LLM-as-a-judge" compares the atomic facts extracted from the model's response against the atomic facts from the ground truth.
-- **Metric**: **Accuracy@k**. We measure the number of claims in the generated response ($A$) that are entailed by the ground truth claims ($C$), capped at the number of claims in the ground truth ($k$). This prevents models from gaming the metric by generating excessive verifiable but irrelevant facts.
-- **Implementation**: `ogc_eval/afv.py`.
+# With a real model (OpenAI)
+python -m ogc_eval.main prepare --input datasetsample.csv --model gpt-4 --api_key sk-...
+```
 
-## Project Structure
+**Output:** A CSV file (e.g., `datasetsample_prepped.csv`) containing a new `response_facts` column (JSON-serialized list of facts).
+
+### 2. Evaluation (`evaluate`)
+**Goal:** Evaluate a model's generated responses against the Golden Dataset.
+**Pipeline:**
+1.  **Abstention Detection:** Checks if the model refused to answer (using `LibrAI/longformer-action-ro`).
+2.  **AFG (Gen):** Decomposes the model's generated response into atomic facts.
+3.  **AFV:** Verifies these facts against the pre-computed Ground Truth facts using an LLM Judge.
+
+```bash
+# Run evaluation on the prepared dataset
+python -m ogc_eval.main evaluate --input datasetsample_prepped.csv --mock
+
+# With a local HuggingFace model
+python -m ogc_eval.main evaluate --input datasetsample_prepped.csv --model meta-llama/Llama-3-8b --device cuda
+```
+
+**Output:**
+- **Results CSV:** `ogc_eval_results_{timestamp}.csv` (Detailed row-by-row metrics).
+- **Summary Report:** `ogc_eval_results_{timestamp}_summary.txt` (Aggregated statistics).
+- **Logs:** `logs/ogc_eval_{timestamp}.log` (Execution trace).
+
+## Project Architecture
 
 ```
 OGC_evals/
 ├── ogc_eval/
-│   ├── abstention.py   # Module for detecting model refusals (PLM-based)
-│   ├── afg.py          # Atomic Fact Generator (with SAFE-style demons)
-│   ├── afv.py          # Automatic Fact Verifier (Entailment checks)
-│   ├── data_loader.py  # Dataset loading, validation, and batching
-│   ├── demos/          # Few-shot examples (demons) for AFG
-│   ├── logger.py       # Centralized logging configuration (Console + File)
-│   ├── prompts/        # System and User prompts for LLM tasks
-│   ├── result_writer.py# Output handler (CSV results + Summary statistics)
-│   ├── main.py         # Orchestrator script for running evaluations
-│   └── model.py        # LLM Wrapper (Mock, HuggingFace, OpenAI API)
-├── logs/               # Directory for execution logs
-├── testing/            # Archive of component tests
-├── datasetsample.csv   # Sample input dataset (prompts + expected responses)
-├── requirements.txt    # Python dependencies
-└── README.md           # This file
+│   ├── main.py         # CLI Entry point (prepare & evaluate commands)
+│   ├── abstention.py   # PLM-based refusal detection
+│   ├── afg.py          # Atomic Fact Generator
+│   ├── afv.py          # Fact Verifier (Entailment)
+│   ├── data_loader.py  # Handles CSV/JSONL & Batching
+│   ├── result_writer.py# Generates CSVs and Summary Reports
+│   ├── logger.py       # Centralized logging
+│   ├── model.py        # Wrapper for OpenAI/HF/Mock models
+│   ├── demos/          # Few-shot examples
+│   └── prompts/        # System prompts
+├── logs/               # Execution logs
+└── requirements.txt    # Python dependencies
 ```
+
+## Methodology
+
+### 1. Abstention Detection
+Uses a **PLM-based classifier** (`LibrAI/longformer-action-ro`) to detect if a model response is a refusal or disclaimer. This prevents "I cannot answer" from being halluncinated as a factual claim.
+
+### 2. Atomic Fact Generation (AFG)
+Decomposes long-form text into self-contained "atomic facts".
+- **Ground Truth**: Pre-computed during the `prepare` stage.
+- **Generated Response**: Computed dynamically during `evaluate`.
+- **Mechanism**: Uses `spacy` for sentence splitting and an LLM with few-shot "demons" to extract facts.
+
+### 3. Automatic Fact Verification (AFV)
+An "LLM-as-a-judge" compares the generated facts against the ground truth facts to calculate **Accuracy@k**.
 
 ## Installation
 
-1. **Clone the repository** and navigate to the root directory.
-2. **Install dependencies**:
+1. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
    ```
-3. **Download Spacy model**:
+2. **Download Spacy model**:
    ```bash
    python -m spacy download en_core_web_sm
    ```
 
-## Usage
+## Hardware Requirements
 
-To run the evaluation suite on the provided sample dataset (defaults to **Mock Mode**):
+Resource usage depends heavily on whether you are using **OpenAI API** or **Local Models (HuggingFace)**.
 
-```bash
-python -m ogc_eval.main
-```
+### Disk Space
+- **Abstention Classifier**: ~600MB (Automatically downloaded to HuggingFace cache on first use).
+- **Spacy Model**: ~15MB.
+- **Evaluation Models**: Variable (e.g., Llama-3-8B is ~15GB).
 
-### Outputs & Logging
-- **Results**: Saved to `eval_results_{timestamp}.csv` (raw data) and `eval_results_{timestamp}_summary.txt` (statistics).
-- **Logs**: Execution traces are saved to `logs/ogc_eval_{timestamp}.log`.
+### RAM / Memory
+- **Base Requirement**: 8GB RAM is recommended for data processing and running the Abstention Classifier pipeline comfortably.
+- **Large Datasets**: For datasets with >10,000 rows, ensure sufficient RAM for Pandas operations.
 
-To use a real model, instantiate `OGCEvaluator` in a script with `mock=False` and provide an API key or HuggingFace model path:
-
-*   **Architecture**: The core modular architecture is complete and self-contained within the `ogc_eval` package. Dependencies on external `long-form-factuality` folders have been removed.
-*   **Model Integration**: `ogc_eval/model.py` is fully implemented to support:
-    *   **Mock Mode**: For testing logic without resources.
-    *   **OpenAI API**: Auto-detects `OPENAI_API_KEY` or accepts explicit key.
-    *   **HuggingFace Transformers**: Loads local models (supports `device_map="auto"`).
-*   **Dataset**: Pipeline currently supports loading CSV/JSONL. If 'generated_response' is missing, it mocks it by copying ground truth data for pipeline verification.
-
-## Notes & Idiosyncrasies
-
-*   **Mock Mode Default**: The system defaults to `mock=True` to allow running the pipeline without API keys or GPUs. In this mode, the LLM generates static placeholder text (e.g., "- Mock atomic fact 1"). Ensure you set `mock=False` for actual evaluations.
-*   **Abstention Detection Model**: The abstention module uses a specialized local model (`LibrAI/longformer-action-ro`). This model is approximately **600MB** and will be downloaded upon first use. It is designed to run efficiently on a CPU, so it remains active even when the main evaluator is in "Mock Mode".
-*   **Data Fallback**: If the input dataset (CSV/JSONL) is missing the `generated_response` column (i.e., you are testing the pipeline structure rather than a model's output), the system will automatically copy the ground truth `response` into `generated_response`. This facilitates pipeline testing but means "perfect" scores in this scenario are an artifact of this fallback.
-*   **Spacy Dependency**: The Atomic Fact Generator (AFG) strictly requires the `en_core_web_sm` Spacy model for sentence splitting. Ensure this is downloaded as per the installation instructions.
-
-## References
-
-*   **FActScore**: Min et al. (2023). [FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation](https://arxiv.org/abs/2305.14251).
-*   **SAFE**: Wei et al. (2024). [Long-form Factuality in Large Language Models](https://arxiv.org/abs/2403.18802).
-*   **VeriScore**: Song, Kim & Iyyer (2024). [VeriScore: Evaluating the Factuality of Verifiable Claims in Long-Form Text Generation](https://arxiv.org/abs/2406.19276).
-*   **OpenFActScore**: Lage & Ostermann (2025). [OpenFActScore: Open-Source Fine-grained Atomic Evaluation of Factual Precision](https://arxiv.org/abs/2507.05965).
+### GPU / vRAM
+- **Abstention Detection**: Can run on CPU, but uses ~1GB vRAM if `device="cuda"` is specified.
+- **Local LLMs**:
+    - **8B Models (e.g., Llama-3)**: Require ~16GB-24GB vRAM (depending on quantization) for the `prepare` and `evaluate` stages if run locally.
+    - **70B Models**: Require multiple GPUs or high-memory A100/H100 instances.
+- **API-only usage**: If using `mock=True` or OpenAI models, the GPU requirement is effectively zero.

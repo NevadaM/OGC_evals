@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import json
 from typing import List, Dict, Optional, Any, Iterator
 from .logger import get_module_logger
 
@@ -14,6 +15,7 @@ class DataLoader:
     2. **Efficiency**: Instead of iterating row-by-row, `get_batches()` yields chunks of data. This allows 
        downstream components (like the AbstentionDetector pipeline) to process multiple inputs in parallel 
        (vectorisation), significantly reducing total runtime on GPUs.
+    3. **Serialization**: Automatically deserializes pre-computed columns like 'response_facts'.
     """
     REQUIRED_COLUMNS = ['prompt', 'response']
     
@@ -60,7 +62,7 @@ class DataLoader:
 
     def _validate_and_prepare(self):
         """
-        Ensures required columns exist and prepares 'generated_response'.
+        Ensures required columns exist, prepares 'generated_response', and deserializes facts.
         """
         missing = [col for col in self.REQUIRED_COLUMNS if col not in self.df.columns]
         if missing:
@@ -73,10 +75,33 @@ class DataLoader:
         else:
             logger.info("Found 'generated_response' column. Using provided model outputs.")
             
+        # Handle pre-computed facts (JSON deserialization)
+        if 'response_facts' in self.df.columns:
+            logger.info("Found 'response_facts' column. Deserializing JSON...")
+            try:
+                # We interpret the column as JSON strings. 
+                # If it was saved by pandas list support, it might look like "['a', 'b']" (string representation)
+                # which isn't valid JSON (single quotes). 
+                # Ideally we use json.loads. If that fails, we might need ast.literal_eval (but json is safer).
+                # We'll assume the 'prepare' step uses json.dumps().
+                
+                def safe_load(x):
+                    if isinstance(x, list): return x # Already a list (e.g. from JSON/Parquet)
+                    try:
+                        return json.loads(x)
+                    except (json.JSONDecodeError, TypeError):
+                        # Fallback for simple string representation if needed, or return empty
+                        return []
+                        
+                self.df['response_facts'] = self.df['response_facts'].apply(safe_load)
+            except Exception as e:
+                logger.warning(f"Error deserializing 'response_facts': {e}")
+        
         # Ensure no NaN values in critical columns
-        if self.df[self.REQUIRED_COLUMNS + ['generated_response']].isnull().any().any():
+        cols_to_check = self.REQUIRED_COLUMNS + ['generated_response']
+        if self.df[cols_to_check].isnull().any().any():
             logger.warning("Warning: Null values found in critical columns. Dropping incomplete rows.")
-            self.df.dropna(subset=self.REQUIRED_COLUMNS + ['generated_response'], inplace=True)
+            self.df.dropna(subset=cols_to_check, inplace=True)
             
         logger.info(f"Dataset loaded successfully with {len(self.df)} rows.")
 
