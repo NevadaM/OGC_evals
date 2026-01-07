@@ -8,7 +8,7 @@
 ## whereas we need declarative statements a la FActScore
 ## in any case this works by using NLTK and spacy and an LLM
 ## to first split text into sentences
-## then, upon retrieving examples from "demos" (or demons?)
+## then, upon retrieving examples from "demons" (or demons?)
 ## using them as few-shot examples to split sentences into 
 ## claims afterward
 
@@ -44,7 +44,7 @@ except OSError:
     SPACY_MODEL = None
 
 class AtomicFactGenerator:
-    def __init__(self, model: LLMWrapper, demon_path: str = "ogc_eval/demos/demons.json"):
+    def __init__(self, model: LLMWrapper, demon_path: str = "ogc_eval/demons/demons.json"):
         self.nlp = SPACY_MODEL
         self.model = model
         self.demon_path = demon_path
