@@ -44,7 +44,7 @@ except OSError:
     SPACY_MODEL = None
 
 class AtomicFactGenerator:
-    def __init__(self, model: LLMWrapper, demon_path: str = "ogc_eval/demons/demons.json"):
+    def __init__(self, model: LLMWrapper, demon_path: str = "ogc_eval/demons/newdemons.json"):
         self.nlp = SPACY_MODEL
         self.model = model
         self.demon_path = demon_path
