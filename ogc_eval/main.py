@@ -21,9 +21,10 @@ def run_prepare(args):
     """
     PREPARE MODE:
     Pre-computes atomic facts for the Ground Truth ('response') column.
-    Saves a new CSV with a 'response_facts' column.
+    Saves a new CSV with a 'response_facts' column (The Reference Dataset).
     """
-    logger.info("Starting Dataset Preparation (AFG on Ground Truth)...")
+    logger.info("Initializing Reference Dataset Preparation...")
+    logger.info("This step will pre-compute atomic facts for the Ground Truth to speed up future evaluations.")
     
     # Initialize Model (AFG requires LLM)
     llm = LLMWrapper(model_name=args.model, device=args.device, api_key=args.api_key, mock=args.mock)
@@ -36,9 +37,6 @@ def run_prepare(args):
     results = []
     
     # Process
-    # We use iterrows or loader iteration. Since we need to modify the dataframe,
-    # building a list and creating a new DF is cleaner.
-    
     logger.info(f"Processing {len(df)} rows...")
     for index, row in tqdm(df.iterrows(), total=len(df), desc="Atomizing GT"):
         response = row['response']
@@ -53,16 +51,16 @@ def run_prepare(args):
         
     # Save
     result_df = pd.DataFrame(results)
-    output_path = args.output or args.input.replace(".csv", "_prepped.csv")
+    output_path = args.output or args.input.replace(".csv", "_reference.csv")
     result_df.to_csv(output_path, index=False)
-    logger.info(f"Preparation complete. Saved to {output_path}")
+    logger.info(f"Preparation complete. Reference Dataset saved to {output_path}")
 
 
 def run_evaluate(args):
     """
     EVALUATE MODE:
     Runs the full evaluation pipeline (Abstention -> AFG(Gen) -> AFV).
-    Uses pre-computed 'response_facts' if available, otherwise computes them on the fly.
+    Uses pre-computed 'response_facts' from the Reference Dataset if available.
     """
     logger.info("Starting Evaluation Pipeline...")
     
@@ -81,12 +79,17 @@ def run_evaluate(args):
     loader = DataLoader(args.input)
     writer = ResultWriter()
     
-    # Use batching for efficiency? 
-    # Currently AFG and AFV are implemented for single items.
-    # We can stick to row-by-row for clarity until components support batching.
-    # However, DataLoader.get_batches() is available if we want to batch Abstention.
+    # Check for Reference Dataset columns early to warn user
+    first_batch = next(loader.get_batches(1), [])
+    if first_batch and 'response_facts' in first_batch[0]:
+        logger.info("✓ Reference Dataset detected. Using pre-computed Ground Truth facts (Fast Path).")
+    else:
+        logger.warning("! Reference Dataset NOT detected. Computing Ground Truth facts on-the-fly (Slow Path).")
+        logger.warning("! Recommendation: Run 'python -m ogc_eval.main prepare' first to optimize this process.")
+
+    # Reset loader for full iteration
+    # Since DataLoader reads from DF in memory, we can just call get_batches again.
     
-    # Let's do a hybrid approach: Batch Abstention (it supports it), then loop for AFG/AFV.
     batch_size = 16
     results = []
     
@@ -96,14 +99,7 @@ def run_evaluate(args):
         # batch is a list of dicts
         
         # 1. Batch Abstention Detection
-        # We need to extract responses.
         gen_responses = [row['generated_response'] for row in batch]
-        
-        # AbstentionDetector.classifier is a pipeline, it can take a list!
-        # But our wrapper `is_abstention` takes a single string.
-        # To leverage batching, we should technically update AbstentionDetector to accept lists.
-        # For now, to avoid changing that file again, we loop.
-        # (Optimization opportunity for later: Update AbstentionDetector to batch).
         
         for i, row in enumerate(batch):
             prompt = row['prompt']
@@ -112,7 +108,6 @@ def run_evaluate(args):
             
             # Fallback: if GT facts missing (not prepped), compute them
             if not gt_facts and 'response' in row:
-                logger.debug("GT facts missing, computing on the fly...")
                 gt_facts, _ = afg.run(row['response'])
 
             # 1. Abstention

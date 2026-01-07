@@ -6,43 +6,41 @@ OGC Evals is a robust evaluation framework designed to benchmark Large Language 
 
 It implements a **FActScore-style** evaluation pipeline, enhancing the original methodology by integrating insights from **SAFE** (Search-Augmented Factuality Evaluators) and **VeriScore**.
 
-## Workflow & Usage
+## The Standard Workflow
 
-The evaluation process is split into two distinct stages to maximize efficiency and robustness.
+The OGC Evals architecture is designed to save time and compute by splitting the process into two phases: **Reference Creation** and **Model Benchmarking**.
 
-### 1. Preparation (`prepare`)
-**Goal:** Pre-compute Atomic Facts for the Ground Truth responses.
-**Why:** Running Atomic Fact Generation (AFG) on the ground truth for every evaluation run is redundant. This step runs it once and saves a "Golden Dataset".
-
-```bash
-# Basic usage (Mock mode)
-python -m ogc_eval.main prepare --input datasetsample.csv --mock --output datasetsample_prepped.csv
-
-# With a real model (OpenAI)
-python -m ogc_eval.main prepare --input datasetsample.csv --model gpt-4 --api_key sk-...
-```
-
-**Output:** A CSV file (e.g., `datasetsample_prepped.csv`) containing a new `response_facts` column (JSON-serialized list of facts).
-
-### 2. Evaluation (`evaluate`)
-**Goal:** Evaluate a model's generated responses against the Golden Dataset.
-**Pipeline:**
-1.  **Abstention Detection:** Checks if the model refused to answer (using `LibrAI/longformer-action-ro`).
-2.  **AFG (Gen):** Decomposes the model's generated response into atomic facts.
-3.  **AFV:** Verifies these facts against the pre-computed Ground Truth facts using an LLM Judge.
+### Step 1: Initialize the Reference Dataset (`prepare`)
+**Frequency:** Once per dataset.  
+**Purpose:** The "Ground Truth" answers in your dataset must be decomposed into Atomic Facts before they can be used for evaluation. Since this requires LLM calls (using the AFG module), we pre-compute and save these facts so they don't need to be re-generated for every model you test.
 
 ```bash
-# Run evaluation on the prepared dataset
-python -m ogc_eval.main evaluate --input datasetsample_prepped.csv --mock
-
-# With a local HuggingFace model
-python -m ogc_eval.main evaluate --input datasetsample_prepped.csv --model meta-llama/Llama-3-8b --device cuda
+# Example: Prepare the sample dataset (Mock mode)
+python -m ogc_eval.main prepare --input datasetsample.csv --output datasetsample_reference.csv --mock
 ```
 
-**Output:**
-- **Results CSV:** `ogc_eval_results_{timestamp}.csv` (Detailed row-by-row metrics).
-- **Summary Report:** `ogc_eval_results_{timestamp}_summary.txt` (Aggregated statistics).
-- **Logs:** `logs/ogc_eval_{timestamp}.log` (Execution trace).
+**Output:** A **Reference Dataset** (e.g., `datasetsample_reference.csv`) containing a `response_facts` column. This file is now the "source of truth" for all future evaluations.
+
+### Step 2: Evaluate Model Outputs (`evaluate`)
+**Frequency:** Many times (Once per model or experiment).  
+**Purpose:** This stage takes your model's generated responses, extracts facts from them, and compares them against the **Reference Dataset** created in Step 1.
+
+```bash
+# Example: Evaluate a model using the Reference Dataset
+python -m ogc_eval.main evaluate --input datasetsample_reference.csv --mock
+```
+
+> **Note:** If you run `evaluate` on a raw dataset (without running `prepare` first), the system will calculate Ground Truth facts on-the-fly. This works but is significantly slower and wastes tokens if you plan to evaluate multiple models on the same data.
+
+**Pipeline Details:**
+1.  **Abstention Check:** Did the model refuse to answer? (Local PLM classifier)
+2.  **Fact Generation:** Atomize the *model's* response.
+3.  **Fact Verification:** Compare Model Facts vs. Reference Facts (LLM Judge).
+
+## Outputs
+- **Results CSV:** `ogc_eval_results_{timestamp}.csv` containing granular, row-by-row scores.
+- **Summary Report:** `ogc_eval_results_{timestamp}_summary.txt` containing aggregate metrics (Mean Accuracy, Abstention Rate, etc.).
+- **Logs:** `logs/ogc_eval_{timestamp}.log`.
 
 ## Project Architecture
 
