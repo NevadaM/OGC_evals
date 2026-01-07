@@ -153,18 +153,18 @@ class LLMWrapper:
         else:
             return final
 
-    def classify(self, input_data: Union[str, List[Dict[str, str]]], options: List[str]) -> str:
-        if self.mode == "mock":
-            prompt_str = str(input_data)
-            if "Did the AI refuse" in prompt_str: return "NO"
-            if "Does the premise entail" in prompt_str: return "YES"
-            return options[0]
+    # def classify(self, input_data: Union[str, List[Dict[str, str]]], options: List[str]) -> str:
+    #     if self.mode == "mock":
+    #         prompt_str = str(input_data)
+    #         if "Did the AI refuse" in prompt_str: return "NO"
+    #         if "Does the premise entail" in prompt_str: return "YES"
+    #         return options[0]
 
-        response = self.generate(input_data, max_new_tokens=10, temperature=0.0).strip()
+    #     response = self.generate(input_data, max_new_tokens=10, temperature=0.0).strip()
         
-        for opt in options:
-            if response.lower() == opt.lower(): return opt
-        for opt in options:
-            if opt.lower() in response.lower(): return opt
+    #     for opt in options:
+    #         if response.lower() == opt.lower(): return opt
+    #     for opt in options:
+    #         if opt.lower() in response.lower(): return opt
                 
-        return response if response else options[0]
+    #     return response if response else options[0]
