@@ -20,7 +20,7 @@ from .logger import get_module_logger
 logger = get_module_logger("model")
 
 class LLMWrapper:
-    def __init__(self, model_name: str, device: str = "cpu", api_key: Optional[str] = None, mock: bool = False):
+    def __init__(self, model_name: str, device: str = "cpu", api_key: Optional[str] = None, temperature: float = 0.1, mock: bool = False):
         self.model_name = model_name
         self.device = device
         self.api_key = api_key
@@ -29,6 +29,7 @@ class LLMWrapper:
         self.model: Any = None
         self.tokenizer: Any = None
         self.client: Any = None
+        self.temperature = temperature
         self.mode: str = "mock"
 
         if mock:
@@ -86,10 +87,9 @@ class LLMWrapper:
     def generate(self, 
                  input_data: Union[str, List[Dict[str, str]]], 
                  max_new_tokens: int = 256, 
-                 temperature: float = 1, # NOTE: temperature = 1
                  stop_sequences: Optional[List[str]] = None,
                  return_input_data: bool = False) -> str:
-        
+        temperature = self.temperature
         if self.mode == "mock":
             return self._generate_mock(input_data)
         elif self.mode == "api":
@@ -160,7 +160,7 @@ class LLMWrapper:
             if "Does the premise entail" in prompt_str: return "YES"
             return options[0]
 
-        response = self.generate(input_data, max_new_tokens=10, temperature=0.0).strip()
+        response = self.generate(input_data, max_new_tokens=10).strip()
         
         for opt in options:
             if response.lower() == opt.lower(): return opt
