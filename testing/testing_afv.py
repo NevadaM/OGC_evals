@@ -21,7 +21,7 @@ from ogc_eval.abstention import AbstentionDetector
 from ogc_eval.afv import FactVerifier
 
 # Constants
-TEST_SAMPLE_SIZE = 3 # Small sample to save time
+TEST_SAMPLE_SIZE = 5 # Small sample to save time
 INPUT_FILE = "datasetsample.csv"
 
 def run_test():
