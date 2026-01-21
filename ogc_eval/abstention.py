@@ -71,11 +71,11 @@ class AbstentionDetector:
         # Adjusted rubric
         # after tests of datasetsample, where everything is either 3, 5, or 1 (3 most common, 1 least)
         # disclaimers are fine, so everything with a 3 still passes
-        # if not a 5 or 3, might still be ok, having manually reviewed all 1s. need 95% confidence that
-        # the 1 is true. 95% threshold has been tested and seems to work well. 
+        # if not a 5 or 3, might still be ok, having manually reviewed all 1s. need 92.5% confidence that
+        # the 1 is true. 92.5% threshold has been tested and seems to work well. 
         if label_id in [3, 5]:
             judgement = "PASS"
-        elif label_id not in [3, 5] and score < 0.95:
+        elif label_id not in [3, 5] and score < 0.925:
             judgement = "PASS"
         else:
             judgement = "ABSTENTION"
