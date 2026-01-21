@@ -37,8 +37,8 @@ for response in sample_responses:
     atomised = afg.run(response)
     print(atomised)
 
-# results with a small model seem ok at best. need to test with a larger model, but would also like
-# to refine demos (or demons) to see what can be done.
-# for example, if the response starts with "yes, you can", I think the atomised claim should just be
-# "you can". which is ironed out with few-shot, hopefully.
-# the code runs. I'd be interested in seeing more logging.
+# results with a small model seem ok at best. need to test with a larger model
+# is temperature = 0 good? almost definitely
+# temperature > 0.5 seems to actually bring hallucinations into results
+# with artifacts from demons present in output
+# which is interesting
