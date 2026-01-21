@@ -111,15 +111,13 @@ def run_evaluate(args):
                 gt_facts, _ = afg.run(row['response'])
 
             # 1. Abstention
-            label_id, label_desc, score = abstention_detector.is_abstention(gen_response)
-            is_abstained = label_id in [0, 4] # 0=Refusal, 4=Incapable
+            judgement = abstention_detector.is_abstention(gen_response, verbose=True)
+            is_abstained = (judgement == "ABSTENTION")
             
             row_result = {
                 "prompt": prompt,
                 "generated_response": gen_response,
                 "is_abstained": is_abstained,
-                "abstention_label": label_desc,
-                "abstention_score": score,
                 "score": 0.0, # Default
                 "supported_claims": 0,
                 "afg_k_gen": 0,
