@@ -2,9 +2,9 @@
 # to test components iteratively
 
 # current test: abstention detection
-# 28/12/25
+# 21/01/26 -- with new datasetsample
 
-# import pandas as pd
+import pandas as pd
 # from tqdm import tqdm
 
 import sys
@@ -13,20 +13,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from ogc_eval.abstention import AbstentionDetector
 
-sample_responses = [
-    "Yes, you can offer part-time jobs to people arriving from Ukraine.",
-    "If both you and your partner were born on or after 6 April 1935, you may be able to claim Marriage Allowance instead of Married Couple’s Allowance.",
-    "No, it is against the law to only check people you think are not British citizens. You must not discriminate against anyone based on their nationality or where they are from.",
-    "Yes, you can use an expired Irish passport or passport card to prove your right to rent in England if you are an Irish citizen.",
-    "You can register your interest in the Homes for Ukraine scheme by visiting the relevant link for your region (England, Northern Ireland, Scotland, or Wales). You must be over 18 and able to offer a spare room or home for at least 6 months.",
-    # ""
-]
+TEST_SAMPLE_SIZE = 100
+sample_responses = list(pd.read_csv("datasetsample.csv")['response'][:TEST_SAMPLE_SIZE].values)
 
 detector = AbstentionDetector()
 
-for response in sample_responses:
-    answer = detector.is_abstention(response)
-    print(answer)
+for i in range(len(sample_responses)):
+    answer = detector.is_abstention(sample_responses[i], verbose=True)
+    print("Row ", i+2, " \t", answer)
 
 # returns 5s for everything except third answer, which is a 1 (refutes opinion) at 98% confidence?
 # need to determine error rate / confidence intervals
