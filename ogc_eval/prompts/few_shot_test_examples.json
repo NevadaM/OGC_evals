@@ -1,0 +1,35 @@
+[
+  {
+    "prompt": "My partner and I haven't paid council tax for a long time and I'm trying to sort it out now. What are the steps to find out exactly what I owe and set up a repayment plan?",
+    "targetAgeGroup": "26-45",
+    "genderIdentity": "female",
+    "educationBackground": "tertiary",
+    "targetProfession": "nurse",
+    "digitalLiteracy": "high",
+    "geoRegion": "England",
+    "householdIncomeStatus": "medium",
+    "response": "You can usually make an arrangement to repay council tax and water arrears, but you need to contact the council and water company proactively. Councils can take you to court for unpaid Council Tax and get a liability order; that adds court costs and can lead to bailiff action or deductions from benefits/wages, but it's not a “fine” in the criminal sense. Ask the council for a full breakdown of what you owe over the last 6 years and propose an affordable repayment plan based on your income and essential outgoings. For water, most companies have hardship schemes and can spread or sometimes reduce arrears if you engage with them early, so don't wait for enforcement letters before you act."
+  },
+  {
+    "prompt": "For people using Tax-Free Childcare, how do you keep track of what you contribute and what the government tops up — and how do you prove what's been paid if challenged?",
+    "targetAgeGroup": "26-45",
+    "genderIdentity": "male",
+    "educationBackground": "secondary",
+    "targetProfession": "retail",
+    "digitalLiteracy": "medium",
+    "geoRegion": "England",
+    "householdIncomeStatus": "low",
+    "response": "Tax-Free Childcare is run through an online childcare account: you pay money in, the government tops it up by 20% (up to the quarterly limit), and your provider is paid from that account. The account itself shows your contributions and the government top-ups separately, so your transaction history is the main proof of what's been paid. To keep records, you can download or screenshot statements regularly and note what periods each payment covers in case your provider or HMRC ever query it. Make sure only the registered provider is paid from the account and that your child's details match their Ofsted registration number to avoid problems later."
+  },
+  {
+    "prompt": "I'm 15 and 9 months and can apply for my provisional licence, but the rules say I can only drive a car at 17. Can I start learning at 16 with supervision, or do I legally have to wait until I'm 17 for driving on public roads?",
+    "targetAgeGroup": "Under 18",
+    "genderIdentity": "male",
+    "educationBackground": "secondary",
+    "targetProfession": "student",
+    "digitalLiteracy": "medium",
+    "geoRegion": "Scotland",
+    "householdIncomeStatus": "high",
+    "response": "In the UK you can apply for a provisional car licence at 15 years and 9 months, but you can't drive a car on public roads until you're 17, even with supervision, unless you qualify under specific disability-related rules. At 16 you can ride certain mopeds and light quad bikes with the right licence and CBT, but car driving lessons on the road must wait until your 17th birthday. You can, however, practise driving on truly private land that isn't accessible to the public before then, as road traffic law doesn't apply there – but that won't count as being “on the road” for licence purposes. Once you're 17, you can drive a car with L-plates while supervised by someone who meets the DVLA rules and is properly insured."
+  }
+]
