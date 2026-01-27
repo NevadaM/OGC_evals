@@ -52,17 +52,17 @@ class FactVerifier:
             if "YES" in output.upper():
                 supported_count += 1
         
-        # Accuracy@k calculation
-        # "where we don't count accurate claims in ai beyond the number of claims in ci"
-        # This sounds like: min(supported_count, len(reference_claims)) / len(reference_claims) ?
-        # Or maybe the user meant Precision? "number of claims in ai that are present in..."
-        # If I generate 100 facts and 5 are true, is that good?
-        # The prompt says: "accuracy@k, where we don't count accurate claims in ai beyond the number of claims in ci."
-        # This suggests capping the numerator at k (where k = len(reference_claims)).
+        # Precision@k calculation
+        # k is the number of facts in the ground truth
+        # we look to find the number of claims tested model makes that are backed up in ground truth (supported_count)
+        # then cap that at k
+        # more than k = too much info, repeating information, etc. that can bump up factuality measurements despite no positive utility change
+        # 
+        # 
         
         k = len(reference_claims)
         if k == 0:
-            return 0.0, 0 # If ground truth is empty, we can't support anything? Or maybe everything is hallucination.
+            return 0.0, 0 # 
             
         capped_supported = min(supported_count, k)
         score = capped_supported / k
