@@ -15,11 +15,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ogc_eval.generator import Generator_DataLoader, Generator_Model
 from ogc_eval.model import LLMWrapper
 
-model = LLMWrapper(model_name="asdf", mock=True)
+csv_path = os.path.join(os.path.dirname(__file__), '..', 'public_set_1.csv')
+API_KEY = os.environ['GEMINI_API_KEY']
+MODEL_UNDER_TEST = 'gemini/gemini-3-flash-preview'
 
-genLoader = Generator_DataLoader("public_set_1.csv")
+model = LLMWrapper(model_name=MODEL_UNDER_TEST, api_key=API_KEY)
+
+genLoader = Generator_DataLoader(csv_path)
 generator = Generator_Model(model=model, context='zero')
 
 results = generator.run(genLoader)
 
-genLoader.save(results)
+genLoader.save(results, label=MODEL_UNDER_TEST)

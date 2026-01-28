@@ -99,33 +99,33 @@ class Generator_Model():
         if self.context == 'few':
             for example in self.examples:
                 user_msg = (
-                    'prompt: ' + example['prompt'] +'\n' + 
-                    'targetAgeGroup: ' + example['targetAgeGroup'] +'\n' + 
-                    'genderIdentity: ' + example['genderIdentity'] +'\n' + 
-                    'educationBackground: ' + example['educationBackground'] +'\n' + 
-                    'targetProfession: ' + example['targetProfession'] +'\n' + 
-                    'digitalLiteracy: ' + example['digitalLiteracy'] +'\n' + 
-                    'geoRegion: ' + example['geoRegion'] +'\n' + 
-                    'householdIncomeStatus: ' + example['householdIncomeStatus'] +'\n' 
+                    'prompt: ' + str(example['prompt']) +'\n' + 
+                    'targetAgeGroup: ' + str(example['targetAgeGroup']) +'\n' + 
+                    'genderIdentity: ' + str(example['genderIdentity']) +'\n' + 
+                    'educationBackground: ' + str(example['educationBackground']) +'\n' + 
+                    'targetProfession: ' + str(example['targetProfession']) +'\n' + 
+                    'digitalLiteracy: ' + str(example['digitalLiteracy']) +'\n' + 
+                    'geoRegion: ' + str(example['geoRegion']) +'\n' + 
+                    'householdIncomeStatus: ' + str(example['householdIncomeStatus']) +'\n' 
                 )
 
                 messages.append({"role": "user", "content": user_msg})
 
                 assistant_msg = (
-                    'response: ' + example['response'] + '\n'
+                    'response: ' + str(example['response']) + '\n'
                 )
                 
                 messages.append({"role": "assistant", "content": assistant_msg})
 
         user_msg = (
-            'prompt: ' + row['prompt'] +'\n' + 
-            'targetAgeGroup: ' + row['targetAgeGroup'] +'\n' + 
-            'genderIdentity: ' + row['genderIdentity'] +'\n' + 
-            'educationBackground: ' + row['educationBackground'] +'\n' + 
-            'targetProfession: ' + row['targetProfession'] +'\n' + 
-            'digitalLiteracy: ' + row['digitalLiteracy'] +'\n' + 
-            'geoRegion: ' + row['geoRegion'] +'\n' + 
-            'householdIncomeStatus: ' + row['householdIncomeStatus'] +'\n' 
+            'prompt: ' + str(row['prompt']) +'\n' + 
+            'targetAgeGroup: ' + str(row['targetAgeGroup']) +'\n' + 
+            'genderIdentity: ' + str(row['genderIdentity']) +'\n' + 
+            'educationBackground: ' + str(row['educationBackground']) +'\n' + 
+            'targetProfession: ' + str(row['targetProfession']) +'\n' + 
+            'digitalLiteracy: ' + str(row['digitalLiteracy']) +'\n' + 
+            'geoRegion: ' + str(row['geoRegion']) +'\n' + 
+            'householdIncomeStatus: ' + str(row['householdIncomeStatus']) +'\n' 
         )
 
         messages.append({"role": "user", "content": user_msg})
