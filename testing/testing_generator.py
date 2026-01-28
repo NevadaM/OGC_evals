@@ -17,7 +17,7 @@ from ogc_eval.model import LLMWrapper
 
 model = LLMWrapper(model_name="asdf", mock=True)
 
-genLoader = Generator_DataLoader("randomised_sample_neil.csv")
+genLoader = Generator_DataLoader("public_set_1.csv")
 generator = Generator_Model(model=model, context='zero')
 
 results = generator.run(genLoader)

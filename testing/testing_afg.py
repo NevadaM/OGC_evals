@@ -19,7 +19,7 @@ from ogc_eval.model import LLMWrapper
 from ogc_eval.afg import AtomicFactGenerator
 
 TEST_SAMPLE_SIZE = 5
-sample_responses = list(pd.read_csv("datasetsample.csv")['response'][:TEST_SAMPLE_SIZE].values)
+sample_responses = list(pd.read_csv("public_set_1.csv")['response'][:TEST_SAMPLE_SIZE].values)
 
 model = LLMWrapper(
     model_name = "google/gemma-3-270m-it",

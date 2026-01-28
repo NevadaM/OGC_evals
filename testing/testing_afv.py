@@ -22,7 +22,7 @@ from ogc_eval.afv import FactVerifier
 
 # Constants
 TEST_SAMPLE_SIZE = 5 # Small sample to save time
-INPUT_FILE = "datasetsample.csv"
+INPUT_FILE = "public_set_1.csv"
 
 def run_test():
     print(f"Loading first {TEST_SAMPLE_SIZE} rows from {INPUT_FILE}...")
