@@ -26,4 +26,4 @@ generator = Generator_Model(model=model, context='zero')
 
 results = generator.run(genLoader)
 
-genLoader.save(results, label=f'{MODEL_UNDER_TEST.split('/')[-1]}_0SHOT')
+genLoader.save(results, label=f'{MODEL_UNDER_TEST.split("/")[-1]}_0SHOT')
