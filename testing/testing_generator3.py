@@ -22,12 +22,12 @@ MODEL_UNDER_TEST = 'groq/llama-3.1-8b-instant'
 model = LLMWrapper(model_name=MODEL_UNDER_TEST, api_key=API_KEY)
 
 genLoader = Generator_DataLoader(csv_path)
-generator = Generator_Model(model=model, context='zero')
+generator = Generator_Model(model=model, context='few')
 
 results = generator.run(genLoader)
 
 try:
-    genLoader.save(results, label=f'{MODEL_UNDER_TEST}_0SHOT')
+    genLoader.save(results, label=f'{MODEL_UNDER_TEST.split("/")}_FEWSHOT')
 except:
     print('placeholder save')
     genLoader.save(results, label='UNKNOWN_0SHOT')

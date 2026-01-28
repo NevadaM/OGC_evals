@@ -1,5 +1,5 @@
 import argparse
-import sys
+import os
 import json
 import pandas as pd
 from tqdm import tqdm
