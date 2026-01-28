@@ -76,7 +76,7 @@ class LLMWrapper:
 
     def generate(self, 
                  input_data: Union[str, List[Dict[str, str]]], 
-                 max_new_tokens: int = 256, 
+                 max_new_tokens: int = 2000, 
                  stop_sequences: Optional[List[str]] = None,
                  return_input_data: bool = False) -> str:
         temperature = self.temperature
@@ -110,7 +110,17 @@ class LLMWrapper:
             
             # LiteLLM normalizes the output to match OpenAI's format exactly
             content = response.choices[0].message.content  # type: ignore
+
+            ##### DEBUGGING EARLY STOPPING
+            finish_reason = response.choices[0].finish_reason  # type: ignore
+            if finish_reason != "stop":
+                print(f"DEBUG: Generation cut off! Reason: {finish_reason} | Max Tokens: {max_tokens}")
+
+            content = response.choices[0].message.content # type: ignore
+            #####
+
             return content if content else ""
+        
         except Exception as e:
             logger.error(f"LiteLLM Generation Error: {e}")
             return ""

@@ -15,7 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from ogc_eval.generator import Generator_DataLoader, Generator_Model
 from ogc_eval.model import LLMWrapper
 
-csv_path = os.path.join(os.path.dirname(__file__), '..', 'public1_subset.csv') ## SUBSET RN
+csv_path = os.path.join(os.path.dirname(__file__), '..', 'public_set_1.csv')
 API_KEY = os.environ['GEMINI_API_KEY']
 MODEL_UNDER_TEST = 'gemini/gemini-2.5-flash'
 
@@ -26,4 +26,4 @@ generator = Generator_Model(model=model, context='zero')
 
 results = generator.run(genLoader)
 
-genLoader.save(results, label=f'{MODEL_UNDER_TEST}_0SHOT_SUBSET_TEST')
+genLoader.save(results, label=f'{MODEL_UNDER_TEST.split('/')[-1]}_0SHOT')
