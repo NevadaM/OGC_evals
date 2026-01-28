@@ -16,6 +16,7 @@
 from typing import List, Optional, Union, Dict, Any
 import os
 from .logger import get_module_logger
+from litellm import completion
 
 logger = get_module_logger("model")
 
@@ -44,19 +45,8 @@ class LLMWrapper:
         logger.info(f"Initialized LLMWrapper in MOCK mode")
 
     def _init_api(self):
-        try:
-            import openai
-            # Prefer passed api_key, fall back to env var
-            key = self.api_key or os.environ.get("OPENAI_API_KEY")
-            if not key:
-                raise ValueError("No API key provided or found in environment.")
-            
-            self.client = openai.OpenAI(api_key=key)
-            self.mode = "api"
-            logger.info(f"Initialized LLMWrapper in API mode with model: {self.model_name}")
-        except Exception as e:
-            logger.warning(f"Error initializing API client: {e}. Falling back to mock.")
-            self._set_mock_mode()
+        self.mode = "api"
+        logger.info(f"Initialized LLMWrapper in API mode (LiteLLM) with model: {self.model_name}")
 
     def _init_hf(self):
         try:
@@ -105,19 +95,23 @@ class LLMWrapper:
 
     def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]], return_input_data: bool) -> str:
         try:
+            # LiteLLM expects standard OpenAI-format messages
             messages = [{"role": "user", "content": input_data}] if isinstance(input_data, str) else input_data
             
-            response = self.client.chat.completions.create(
-                model=self.model_name,
+            # call litellm.completion instead of self.client.chat.completions.create
+            response = completion(
+                model=self.model_name, # Pass "gemini/gemini-pro" or "claude-3-opus" here directly
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stop=stop
             )
-            content = response.choices[0].message.content
+            
+            # LiteLLM normalizes the output to match OpenAI's format exactly
+            content = response.choices[0].message.content  # type: ignore
             return content if content else ""
         except Exception as e:
-            logger.error(f"API Generation Error: {e}")
+            logger.error(f"LiteLLM Generation Error: {e}")
             return ""
 
     def _generate_hf(self, input_data: Union[str, List[Dict[str, str]]], max_new_tokens: int, temperature: float, return_input_data: bool) -> str:
