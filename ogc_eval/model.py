@@ -104,7 +104,8 @@ class LLMWrapper:
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                stop=stop
+                stop=stop,
+                num_retries=3
             )
             
             # LiteLLM normalizes the output to match OpenAI's format exactly
