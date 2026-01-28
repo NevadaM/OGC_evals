@@ -76,7 +76,7 @@ class LLMWrapper:
 
     def generate(self, 
                  input_data: Union[str, List[Dict[str, str]]], 
-                 max_new_tokens: int = 2000, 
+                 max_new_tokens: int = 1000, 
                  stop_sequences: Optional[List[str]] = None,
                  return_input_data: bool = False) -> str:
         temperature = self.temperature
