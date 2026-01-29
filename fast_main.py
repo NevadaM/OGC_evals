@@ -19,24 +19,22 @@ from ogc_eval.afv import FactVerifier
 from ogc_eval.result_writer import ResultWriter
 from ogc_eval.logger import setup_logger
 
-# --- 2. MONKEY-PATCH LITELLM (TIMEOUT FIX) ---
+# --- 2. MONKEY-PATCH LITELLM (TRULY SILENT) ---
 import litellm
 from litellm import completion as original_completion
 
+# Aggressive Silence
 litellm.suppress_debug_info = True
 litellm.drop_params = True
-_logger = logging.getLogger("litellm")
-_logger.setLevel(logging.CRITICAL)
-_logger.propagate = False 
+logging.getLogger("litellm").setLevel(logging.CRITICAL)
 
 def robust_completion(*args, **kwargs):
     """
-    Catches RateLimits, Overloads, AND READ TIMEOUTS.
-    Forces a 120s timeout on all requests.
+    Silent retry wrapper. Catches 429, 503, Timeout.
+    Only raises exception if max_retries is exceeded.
     """
-    # FIX: Force a long timeout (default is often too short for Fact Extraction)
     if 'timeout' not in kwargs:
-        kwargs['timeout'] = 120.0 # 2 minutes
+        kwargs['timeout'] = 120.0 
 
     max_retries = 10
     attempt = 0
@@ -45,61 +43,66 @@ def robust_completion(*args, **kwargs):
             return original_completion(*args, **kwargs)
         except Exception as e:
             error_str = str(e).lower()
-            
-            # TRIGGER RETRY IF:
-            # 1. Rate Limit (429)
-            # 2. Server Overload (503, 529, Overloaded)
-            # 3. Read Timeout (httpcore.ReadTimeout)
-            retry_triggers = [
-                "rate limit", "429", 
-                "503", "service unavailable", "overloaded",
-                "timeout", "timed out"
-            ]
+            retry_triggers = ["rate limit", "429", "503", "service unavailable", "overloaded", "timeout", "timed out"]
             
             if any(x in error_str for x in retry_triggers):
                 attempt += 1
-                # Longer backoff for Timeouts/Overloads
+                # Exponential Backoff (Silent)
                 wait = 10 + (attempt * 5) + random.uniform(1, 5)
-                
-                if attempt >= 3:
-                    tqdm.write(f"   ⚠️  Retry #{attempt}: {error_str[:40]}...")
-                    
                 time.sleep(wait)
                 continue
             
-            # If it's a real error (Context Window, Auth), raise it immediately
             raise e
-            
     raise Exception("Max Retries Exceeded")
 
 litellm.completion = robust_completion
 
 # --- 3. CONFIGURATION ---
-MAX_WORKERS = 4 
-abstention_lock = threading.Lock() 
+MAX_WORKERS = 4  # Keep low for API stability
 
-# --- 4. SHARED WORKER FUNCTIONS ---
+# --- 4. ABSTENTION BATCHER (GPU SPEEDUP) ---
+def batch_detect_abstention(df, detector):
+    """
+    Runs the HuggingFace pipeline in batches on the GPU.
+    Replicates the logic from ogc_eval/abstention.py
+    """
+    print("   Running Abstention Detection (Batch Mode)...")
+    
+    # Extract responses, handling NaN
+    responses = df['generated_response'].fillna("").astype(str).tolist()
+    # Truncate to 4096 chars (matches original logic)
+    inputs = [r[:4096] for r in responses]
+    
+    # Run Pipeline (Fast!)
+    # classifier returns list of dicts: [{'label': 'LABEL_X', 'score': Y.YY}, ...]
+    raw_results = detector.classifier(inputs, batch_size=16, truncation=True)
+    
+    is_abstained_list = []
+    
+    for res in raw_results:
+        label_str = res['label']
+        score = res['score']
+        label_id = int(label_str.split('_')[-1])
+        
+        # LOGIC REPLICATION from abstention.py
+        if label_id in [3, 5]:
+            judgement = "PASS"
+        elif label_id not in [3, 5] and score < 0.925:
+            judgement = "PASS"
+        else:
+            judgement = "ABSTENTION"
+            
+        is_abstained_list.append(judgement == "ABSTENTION")
+        
+    return is_abstained_list
 
-def worker_evaluate(index, row, afg, verifier, abstention_detector):
+# --- 5. WORKER (API ONLY) ---
+def worker_verify(index, row, afg, verifier, is_abstained, gt_facts):
+    """
+    Only runs for NON-ABSTAINED rows.
+    """
     try:
         gen_response = row.get('generated_response', '')
-        
-        # 1. Get GT Facts
-        gt_facts_raw = row.get('response_facts', None)
-        gt_facts = []
-        if gt_facts_raw:
-            if isinstance(gt_facts_raw, str):
-                try: gt_facts = json.loads(gt_facts_raw)
-                except: gt_facts = [f.strip() for f in gt_facts_raw.split('\n') if f.strip()]
-            else: gt_facts = gt_facts_raw
-        
-        if not gt_facts and 'response' in row:
-             gt_facts, _ = afg.run(row['response'])
-
-        # 2. Abstention (Thread-Locked GPU call)
-        with abstention_lock:
-            judgement = abstention_detector.is_abstention(gen_response, verbose=False)
-        is_abstained = (judgement == "ABSTENTION")
         
         row_result = {
             "prompt": row['prompt'], "generated_response": gen_response,
@@ -108,12 +111,13 @@ def worker_evaluate(index, row, afg, verifier, abstention_detector):
             "gen_facts": "[]", "gt_facts": json.dumps(gt_facts)
         }
 
+        # If Abstained (shouldn't really happen if filtered, but safe to keep)
         if is_abstained: return index, row_result
 
-        # 3. Verify
-        # If this times out, the Monkey Patch will now retry instead of crashing
+        # 1. AFG (Generate Facts)
         gen_facts, k_gen = afg.run(gen_response)
         
+        # 2. AFV (Verify Facts)
         accuracy_score, supported_count = verifier.verify(gen_facts, gt_facts)
         
         row_result.update({
@@ -123,8 +127,6 @@ def worker_evaluate(index, row, afg, verifier, abstention_detector):
         return index, row_result
 
     except Exception as e:
-        # If we end up here, it means we exhausted 10 retries or hit a logic error
-        # tqdm.write(f"❌ Row {index} Failed: {str(e)}")
         return index, {"prompt": row.get('prompt', ''), "error": str(e), "score": 0.0}
 
 def worker_prepare(index, row, afg):
@@ -135,12 +137,13 @@ def worker_prepare(index, row, afg):
         return index, facts, k
     except: return index, [], 0
 
-# --- 5. LOGIC CONTROLLERS ---
+# --- 6. CONTROLLERS ---
 
 def process_evaluation(df, input_filename, args, resources):
-    print(f"\n📂 Processing: {input_filename}")
+    print(f"\n📂 Processing: {input_filename} ({len(df)} rows)")
     afg, verifier, abstention_detector = resources
     
+    # A. MERGE FACTS
     if 'response_facts' not in df.columns and args.reference:
         if os.path.exists(args.reference):
             print(f"   Merging facts from {args.reference}...")
@@ -148,20 +151,52 @@ def process_evaluation(df, input_filename, args, resources):
             df['prompt'] = df['prompt'].astype(str)
             ref_df['prompt'] = ref_df['prompt'].astype(str)
             df = df.merge(ref_df[['prompt', 'response_facts']], on='prompt', how='left')
-        else:
-            print(f"⚠️ Warning: Reference file {args.reference} not found.")
-
+    
+    # B. BATCH ABSTENTION (GPU)
+    # This runs ONCE per file, super fast
+    is_abstained_mask = batch_detect_abstention(df, abstention_detector)
+    
+    # C. PARALLEL VERIFICATION (API)
     results_list = [None] * len(df)
     
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_to_idx = {
-            executor.submit(worker_evaluate, i, row, afg, verifier, abstention_detector): i 
-            for i, row in df.iterrows()
-        }
-        for future in tqdm(as_completed(future_to_idx), total=len(df), desc=f"Evaluating {input_filename[:15]}...", unit="rows"):
-            idx, res = future.result()
-            results_list[idx] = res
+        future_to_idx = {}
+        
+        for i, row in df.iterrows():
+            is_abstained = is_abstained_mask[i]
+            
+            # Prepare GT Facts for this row
+            gt_facts_raw = row.get('response_facts', None)
+            gt_facts = []
+            if gt_facts_raw:
+                if isinstance(gt_facts_raw, str):
+                    try: gt_facts = json.loads(gt_facts_raw)
+                    except: gt_facts = [f.strip() for f in gt_facts_raw.split('\n') if f.strip()]
+                else: gt_facts = gt_facts_raw
 
+            # If Abstained, we can skip the API call entirely and fill result now
+            if is_abstained:
+                results_list[i] = {
+                    "prompt": row['prompt'], "generated_response": row.get('generated_response', ''),
+                    "is_abstained": True, "score": 0.0, "supported_claims": 0,
+                    "afg_k_gen": 0, "afg_k_gt": len(gt_facts),
+                    "gen_facts": "[]", "gt_facts": json.dumps(gt_facts)
+                }
+            else:
+                # Submit to API Worker
+                future = executor.submit(worker_verify, i, row, afg, verifier, False, gt_facts)
+                future_to_idx[future] = i
+
+        # Process API results as they finish
+        # Only non-abstained rows are in this loop, so the progress bar reflects "work to be done"
+        if future_to_idx:
+            for future in tqdm(as_completed(future_to_idx), total=len(future_to_idx), desc="   Verifying", unit="rows"):
+                idx, res = future.result()
+                results_list[idx] = res
+        else:
+            print("   (All rows abstained - skipping verification)")
+
+    # D. SAVE
     final_results = [r for r in results_list if r is not None]
     scores = [r['score'] for r in final_results if 'score' in r]
     avg_score = sum(scores)/len(scores) if scores else 0
@@ -192,10 +227,6 @@ def run_evaluate_batch(args):
     elif args.input:
         files_to_process = [args.input]
         
-    if not files_to_process:
-        print("❌ No input files found.")
-        return
-
     for file_path in files_to_process:
         try:
             loader = DataLoader(file_path)
@@ -233,7 +264,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(dest="command", required=True)
     
     parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument("--model", default="groq/llama-3.3-70b-versatile")
+    parent.add_argument("--model", default="groq/llama-3.1-8b-instant")
     parent.add_argument("--device", default="cuda")
     parent.add_argument("--api_key", default=None)
     parent.add_argument("--mock", action="store_true")
