@@ -25,7 +25,7 @@ INPUT_CSV = "public_set_1.csv"
 OUTPUT_DIR = "fast_results"
 
 # Groq Limit: ~25k TPM. Gemini Free: 15 RPM.
-MAX_WORKERS = 12 
+MAX_WORKERS = 20 
 
 # Paths
 PROMPT_DIR = os.path.join("ogc_eval", "prompts")
@@ -43,11 +43,11 @@ TASKS = [
 
     # GEMINI (Flash 2.5)
     # ("gemini/gemini-3-flash-preview", "gemini_3flash_0shot.csv", "zero"), #done
-    # ("gemini/gemini-3-flash-preview", "gemini_3flash_0shot.csv", "few"), #notdone
+    # ("gemini/gemini-3-flash-preview", "gemini_3flash_fewshot.csv", "few"), #notdone
     
     # CLAUDE (Haiku 4.5)
-    # ("claude-haiku-4-5", "claude_haiku_0shot.csv", "zero"), # extreme rate limits
-    # ("claude-haiku-4-5", "claude_haiku_0shot.csv", "few"), # extreme rate limits
+    ("claude-haiku-4-5", "claude_haiku_0shot.csv", "zero"), # extreme rate limits
+    # ("claude-haiku-4-5", "claude_haiku_fewshot.csv", "few"), # extreme rate limits
 ]
 
 # ==========================================
