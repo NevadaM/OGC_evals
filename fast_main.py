@@ -19,7 +19,7 @@ from ogc_eval.afv import FactVerifier
 from ogc_eval.result_writer import ResultWriter
 from ogc_eval.logger import setup_logger
 
-# --- 2. MONKEY-PATCH LITELLM (Silent & Robust) ---
+# --- 2. MONKEY-PATCH LITELLM (TIMEOUT FIX) ---
 import litellm
 from litellm import completion as original_completion
 
@@ -31,9 +31,14 @@ _logger.propagate = False
 
 def robust_completion(*args, **kwargs):
     """
-    Catches RateLimits (429) AND Overload/Service Errors (503, 529).
+    Catches RateLimits, Overloads, AND READ TIMEOUTS.
+    Forces a 120s timeout on all requests.
     """
-    max_retries = 15
+    # FIX: Force a long timeout (default is often too short for Fact Extraction)
+    if 'timeout' not in kwargs:
+        kwargs['timeout'] = 120.0 # 2 minutes
+
+    max_retries = 10
     attempt = 0
     while attempt < max_retries:
         try:
@@ -41,23 +46,36 @@ def robust_completion(*args, **kwargs):
         except Exception as e:
             error_str = str(e).lower()
             
-            # Check for Rate Limit OR Server Overload (Anthropic/Google often send 503/Overloaded)
-            if any(x in error_str for x in ["rate limit", "429", "503", "service unavailable", "overloaded"]):
+            # TRIGGER RETRY IF:
+            # 1. Rate Limit (429)
+            # 2. Server Overload (503, 529, Overloaded)
+            # 3. Read Timeout (httpcore.ReadTimeout)
+            retry_triggers = [
+                "rate limit", "429", 
+                "503", "service unavailable", "overloaded",
+                "timeout", "timed out"
+            ]
+            
+            if any(x in error_str for x in retry_triggers):
                 attempt += 1
-                wait = 5 + (attempt * 2) + random.uniform(1, 3)
-                if attempt == 5:
-                    tqdm.write(f"   (Thread stalling: {error_str[:30]}... auto-retrying)")
+                # Longer backoff for Timeouts/Overloads
+                wait = 10 + (attempt * 5) + random.uniform(1, 5)
+                
+                if attempt >= 3:
+                    tqdm.write(f"   ⚠️  Retry #{attempt}: {error_str[:40]}...")
+                    
                 time.sleep(wait)
                 continue
             
-            # Real error? Raise it.
+            # If it's a real error (Context Window, Auth), raise it immediately
             raise e
+            
     raise Exception("Max Retries Exceeded")
 
 litellm.completion = robust_completion
 
 # --- 3. CONFIGURATION ---
-MAX_WORKERS = 20  # Keep low for API stability
+MAX_WORKERS = 4 
 abstention_lock = threading.Lock() 
 
 # --- 4. SHARED WORKER FUNCTIONS ---
@@ -66,7 +84,7 @@ def worker_evaluate(index, row, afg, verifier, abstention_detector):
     try:
         gen_response = row.get('generated_response', '')
         
-        # 1. Get GT Facts (Fastest: from row; Slowest: generate on fly)
+        # 1. Get GT Facts
         gt_facts_raw = row.get('response_facts', None)
         gt_facts = []
         if gt_facts_raw:
@@ -93,7 +111,9 @@ def worker_evaluate(index, row, afg, verifier, abstention_detector):
         if is_abstained: return index, row_result
 
         # 3. Verify
+        # If this times out, the Monkey Patch will now retry instead of crashing
         gen_facts, k_gen = afg.run(gen_response)
+        
         accuracy_score, supported_count = verifier.verify(gen_facts, gt_facts)
         
         row_result.update({
@@ -103,6 +123,8 @@ def worker_evaluate(index, row, afg, verifier, abstention_detector):
         return index, row_result
 
     except Exception as e:
+        # If we end up here, it means we exhausted 10 retries or hit a logic error
+        # tqdm.write(f"❌ Row {index} Failed: {str(e)}")
         return index, {"prompt": row.get('prompt', ''), "error": str(e), "score": 0.0}
 
 def worker_prepare(index, row, afg):
@@ -116,28 +138,21 @@ def worker_prepare(index, row, afg):
 # --- 5. LOGIC CONTROLLERS ---
 
 def process_evaluation(df, input_filename, args, resources):
-    """
-    Handles the loop for a SINGLE file, using pre-loaded resources.
-    """
     print(f"\n📂 Processing: {input_filename}")
     afg, verifier, abstention_detector = resources
     
-    # Merge Reference Facts if missing
     if 'response_facts' not in df.columns and args.reference:
         if os.path.exists(args.reference):
             print(f"   Merging facts from {args.reference}...")
             ref_df = pd.read_csv(args.reference)
-            # Ensure prompt columns match types (strings)
             df['prompt'] = df['prompt'].astype(str)
             ref_df['prompt'] = ref_df['prompt'].astype(str)
-            
             df = df.merge(ref_df[['prompt', 'response_facts']], on='prompt', how='left')
         else:
             print(f"⚠️ Warning: Reference file {args.reference} not found.")
 
     results_list = [None] * len(df)
     
-    # Run Threads
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         future_to_idx = {
             executor.submit(worker_evaluate, i, row, afg, verifier, abstention_detector): i 
@@ -147,7 +162,6 @@ def process_evaluation(df, input_filename, args, resources):
             idx, res = future.result()
             results_list[idx] = res
 
-    # Write Output
     final_results = [r for r in results_list if r is not None]
     scores = [r['score'] for r in final_results if 'score' in r]
     avg_score = sum(scores)/len(scores) if scores else 0
@@ -163,18 +177,15 @@ def run_evaluate_batch(args):
     print(f"🚀 Turbo Batch Evaluate initialized with model: {args.model}")
     print("   (Loading GPU models once... please wait)")
     
-    # 1. Load Resources ONCE
     llm = LLMWrapper(model_name=args.model, device=args.device, api_key=args.api_key, mock=args.mock)
-    abstention_detector = AbstentionDetector(device=args.device) # Heavy GPU Load
+    abstention_detector = AbstentionDetector(device=args.device) 
     afg = AtomicFactGenerator(llm)
     verifier = FactVerifier(llm)
     
     resources = (afg, verifier, abstention_detector)
     
-    # 2. Determine File List
     files_to_process = []
     if args.input_dir:
-        # Find all CSVs in directory
         pattern = os.path.join(args.input_dir, "*.csv")
         files_to_process = glob.glob(pattern)
         print(f"   Found {len(files_to_process)} files in {args.input_dir}")
@@ -185,15 +196,12 @@ def run_evaluate_batch(args):
         print("❌ No input files found.")
         return
 
-    # 3. Loop through files
     for file_path in files_to_process:
         try:
             loader = DataLoader(file_path)
             df = loader.load()
             filename = os.path.basename(file_path)
-            
             process_evaluation(df, filename, args, resources)
-            
         except Exception as e:
             print(f"❌ Failed to process {file_path}: {e}")
 
@@ -219,32 +227,27 @@ def run_prepare(args):
     result_df.to_csv(output_path, index=False)
     print(f"✅ Saved Reference Dataset to {output_path}")
 
-# --- 6. CLI ---
 if __name__ == "__main__":
     setup_logger()
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
     
     parent = argparse.ArgumentParser(add_help=False)
-    parent.add_argument("--model", default="groq/llama-3.1-8b-instant")
-    parent.add_argument("--device", default="cuda") # Default to CUDA for SageMaker
+    parent.add_argument("--model", default="groq/llama-3.3-70b-versatile")
+    parent.add_argument("--device", default="cuda")
     parent.add_argument("--api_key", default=None)
     parent.add_argument("--mock", action="store_true")
 
-    # Prepare
     p_prep = subparsers.add_parser("prepare", parents=[parent])
     p_prep.add_argument("--input", required=True)
     p_prep.add_argument("--output", default=None)
     
-    # Evaluate (Batch Compatible)
     p_eval = subparsers.add_parser("evaluate", parents=[parent])
-    p_eval.add_argument("--input", default=None, help="Single CSV file")
-    p_eval.add_argument("--input_dir", default=None, help="Directory containing CSVs to batch process")
-    p_eval.add_argument("--reference", default=None, help="Reference CSV with ground truth facts")
+    p_eval.add_argument("--input", default=None)
+    p_eval.add_argument("--input_dir", default=None)
+    p_eval.add_argument("--reference", default=None)
     
     args = parser.parse_args()
     
-    if args.command == "prepare":
-        run_prepare(args)
-    elif args.command == "evaluate":
-        run_evaluate_batch(args)
+    if args.command == "prepare": run_prepare(args)
+    elif args.command == "evaluate": run_evaluate_batch(args)
