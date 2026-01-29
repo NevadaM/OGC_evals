@@ -83,43 +83,42 @@ Claims to Verify:
 {claims_text}
 
 For EACH claim numbered 1 to {len(hypothesis_claims)}, determine if it is supported by the Reference Facts.
-Return a JSON list of strings, where each entry is "YES" (supported) or "NO" (not supported).
-Example: ["YES", "NO", "YES"]
-
-JSON Response:"""
-
+Output ONLY a JSON list of strings, where each entry is "YES" (supported) or "NO" (not supported).
+Do not provide reasoning, preamble, or any other text.
+JSON Output: ["""
         try:
-            # Generate the verification list
-            response = self.model.generate(prompt, max_new_tokens=500).strip()
+            # 1. Generate with JSON mode and a tight token limit
+            response = self.model.generate(
+                prompt, 
+                max_new_tokens=150, 
+                response_format={ "type": "json_object" } 
+            ).strip()
             
-            # Clean Parsing (Handle Markdown or plain text)
-            if "```json" in response:
-                response = response.split("```json")[1].split("```")[0].strip()
-            elif "```" in response:
-                response = response.split("```")[1].split("```")[0].strip()
-                
-            decisions = json.loads(response)
+            # 2. Parse the JSON string into a Python object
+            data = json.loads(response)
             
-            # Fallback for mismatched length (rare)
-            if len(decisions) != len(hypothesis_claims):
-                # If length mismatch, assume NO for safety or try to recover
-                # Usually simple "YES" counting works
-                decisions = decisions[:len(hypothesis_claims)]
+            # 3. Extract the list (handles both raw list or wrapped dict)
+            if isinstance(data, list):
+                decisions = data
+            elif isinstance(data, dict):
+                # If the model wrapped the list in a key like "decisions" or "results"
+                decisions = next(iter(data.values())) if data.values() else []
+            else:
+                decisions = []
                 
-            supported_count = sum(1 for d in decisions if "YES" in str(d).upper())
+            # 4. Filter and count
+            supported_count = sum(1 for d in decisions if str(d).upper() == "YES")
             
         except Exception as e:
-            # Fallback: If JSON parsing fails, regex for "YES"
+            # Fallback: keep your regex/string count for safety
             supported_count = response.upper().count('"YES"')
-            # Or assume 0 if total failure
-            # print(f"Batch Verify Parse Error: {e}")
 
         # Metrics
         k = len(reference_claims)
         k_hat = len(hypothesis_claims)
         if k == 0: return 0.0, 0
         
-        precision = float(supported_count / (supported_count + (k_hat - supported_count))) if (supported_count + (k_hat - supported_count)) > 0 else 0
+        precision = min(1, float(supported_count / (supported_count + (k_hat - supported_count))) if (supported_count + (k_hat - supported_count)) > 0 else 0)
         recall = min(1, float(supported_count / k))
         
         if (precision + recall) == 0:
