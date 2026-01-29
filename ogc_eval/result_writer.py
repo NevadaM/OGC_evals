@@ -79,6 +79,31 @@ class ResultWriter:
 
         lines.append("-" * 40)
 
+        # --- Verbosity Stats ---
+        if 'afg_k_gen' in df.columns and 'afg_k_gt' in df.columns:
+            # Filter for non-abstained rows to see verbosity of actual answers
+            if 'is_abstained' in df.columns:
+                valid_df = df[df['is_abstained'] == False]
+            else:
+                valid_df = df
+
+            if not valid_df.empty:
+                # Calculate Verbosity: avg(k_gen - k_gt)
+                # where k_gen is \hat{K} and k_gt is K
+                verbosity_diff = valid_df['afg_k_gen'] - valid_df['afg_k_gt']
+                avg_verbosity = verbosity_diff.mean()
+                
+                lines.append(f"\nVerbosity Statistics (on {len(valid_df)} answered queries):")
+                lines.append(f"  Average Verbosity (Δ K): {avg_verbosity:+.4f}")
+                lines.append(f"  Avg Gen Facts (K-hat):  {valid_df['afg_k_gen'].mean():.2f}")
+                lines.append(f"  Avg GT Facts (K):       {valid_df['afg_k_gt'].mean():.2f}")
+            else:
+                lines.append("\nVerbosity Statistics: No valid answered queries found.")
+        else:
+            lines.append("\nVerbosity Statistics: Fact count data (afg_k_gen/gt) not available.")
+        
+        lines.append("-" * 40)
+
         # Accuracy Stats (Score)
         # We only look at non-abstained rows for accuracy usually, 
         # or we treat abstention as 0. Let's look at non-abstained for distribution.

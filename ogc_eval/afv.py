@@ -62,7 +62,7 @@ class FactVerifier:
         
         k = len(reference_claims)
         k_hat = len(hypothesis_claims)
-        precision = float(supported_count / (supported_count + (k_hat - supported_count)))
+        precision = min(1, float(supported_count / (supported_count + (k_hat - supported_count))))
         recall = min(1, float(supported_count / k))
         score =  2 * precision * recall / (precision + recall)
         
