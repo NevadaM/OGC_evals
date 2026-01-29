@@ -37,17 +37,25 @@ TASKS = [
     # ("groq/llama-3.1-8b-instant", "llama_3.1_8b_0shot.csv", "zero"), #done
     # ("groq/llama-3.1-8b-instant", "llama_3.1_8b_fewshot.csv", "few"), #done
 
-    # # GROQ (Llama 4 12B)
-    # ("groq/meta-llama/llama-guard-4-12b", "llama_guard4_12b_0shot.csv", "zero"), #will get rate limited
-    # ("groq/meta-llama/llama-guard-4-12b", "llama_guard4_12b_fewshot.csv", "few"), #will get rate limited
+    # # GROQ (qwen)
+    ("groq/qwen/qwen3-32b", "qwen3_32b_0shot.csv", "zero"), 
+    ("groq/qwen/qwen3-32b", "qwen3_32b_fewshot.csv", "few"), 
+    
+    # # GROQ (gpt oss)
+    ("groq/openai/gpt-oss-20b", "gptoss_20b_0shot.csv", "zero"), 
+    ("groq/openai/gpt-oss-20b", "gptoss_20b_fewshot.csv", "few"),
 
+    # # GROQ (llama 3.3-70b)
+    ("groq/llama-3.3-70b-versatile", "llama_33_70b_0shot.csv", "zero"), 
+    ("groq/llama-3.3-70b-versatile", "llama_33_70b_fewshot.csv", "few"),
+    
     # GEMINI (Flash 2.5)
     # ("gemini/gemini-3-flash-preview", "gemini_3flash_0shot.csv", "zero"), #done
     # ("gemini/gemini-3-flash-preview", "gemini_3flash_fewshot.csv", "few"), #notdone
     
     # CLAUDE (Haiku 4.5)
-    ("claude-haiku-4-5", "claude_haiku_0shot.csv", "zero"), # extreme rate limits
-    # ("claude-haiku-4-5", "claude_haiku_fewshot.csv", "few"), # extreme rate limits
+    # ("claude-haiku-4-5", "claude_haiku_0shot.csv", "zero"), # 
+    # ("claude-haiku-4-5", "claude_haiku_fewshot.csv", "few"), # 
 ]
 
 # ==========================================
