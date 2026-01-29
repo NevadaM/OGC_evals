@@ -54,6 +54,9 @@ def robust_completion(*args, **kwargs):
 
 litellm.completion = robust_completion
 
+import ogc_eval.model
+ogc_eval.model.completion = robust_completion
+
 # --- 3. NEW: BATCH FACT VERIFIER (The Speed Fix) ---
 class BatchFactVerifier(FactVerifier):
     """
