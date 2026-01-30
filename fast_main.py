@@ -129,7 +129,7 @@ JSON Output: ["""
         return score, supported_count
 
 # --- 4. CONFIGURATION ---
-MAX_WORKERS = 4  # Keep low for API stability
+MAX_WORKERS = 6  # Keep low for API stability
 abstention_lock = threading.Lock() 
 
 # --- 5. BATCH ABSTENTION (GPU) ---
