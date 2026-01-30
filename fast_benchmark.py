@@ -45,13 +45,17 @@ TASKS = [
     # ("groq/openai/gpt-oss-20b", "gptoss_20b_0shot.csv", "zero"), 
     # ("groq/openai/gpt-oss-20b", "gptoss_20b_fewshot.csv", "few"),
 
+    # GROQ (kimi)
+    ("groq/moonshotai/kimi-k2-instruct-0905", "kimi_k2_0shot.csv", "zero"), 
+    ("groq/moonshotai/kimi-k2-instruct-0905", "kimi_k2_fewshot.csv", "few"),
+
     # # GROQ (llama 3.3-70b)
     # ("groq/llama-3.3-70b-versatile", "llama_33_70b_0shot.csv", "zero"), 
     # ("groq/llama-3.3-70b-versatile", "llama_33_70b_fewshot.csv", "few"),
     
     # GEMINI (Flash 2.5)
     # ("gemini/gemini-3-flash-preview", "gemini_3flash_0shot.csv", "zero"), #done
-    ("gemini/gemini-3-flash-preview", "gemini_3flash_fewshot.csv", "few"), #notdone
+    # ("gemini/gemini-3-flash-preview", "gemini_3flash_fewshot.csv", "few"), #done
     
     # CLAUDE (Haiku 4.5)
     # ("claude-haiku-4-5", "claude_haiku_0shot.csv", "zero"), # 
