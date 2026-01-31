@@ -160,7 +160,7 @@ def worker_verify(index, row, afg, verifier, is_abstained, gt_facts):
     try:
         if is_abstained:
             return index, {
-                "prompt": row['prompt'], "generated_response": row.get('generated_response', ''),
+                "prompt": row['prompt'], "domain": row["domain"], "generated_response": row.get('generated_response', ''),
                 "is_abstained": True, "score": 0.0, "supported_claims": 0,
                 "afg_k_gen": 0, "afg_k_gt": len(gt_facts),
                 "gen_facts": "[]", "gt_facts": json.dumps(gt_facts)
@@ -173,7 +173,7 @@ def worker_verify(index, row, afg, verifier, is_abstained, gt_facts):
         accuracy_score, supported_count = verifier.verify(gen_facts, gt_facts)
         
         return index, {
-            "prompt": row['prompt'], "generated_response": gen_response,
+            "prompt": row['prompt'], "domain": row["domain"], "generated_response": gen_response,
             "is_abstained": False, "score": accuracy_score, "supported_claims": supported_count,
             "afg_k_gen": k_gen, "afg_k_gt": len(gt_facts),
             "gen_facts": json.dumps(gen_facts), "gt_facts": json.dumps(gt_facts)
