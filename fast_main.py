@@ -64,69 +64,64 @@ class BatchFactVerifier(FactVerifier):
     Reduces API usage by ~90%.
     """
     def verify(self, hypothesis_claims, reference_claims):
-        if not hypothesis_claims:
-            return 0.0, 0
-            
-        if not reference_claims: # If GT is empty, nothing is supported
+        # 1. Initialize variables at the VERY top so they always exist
+        response = "" 
+        supported_count = 0
+        
+        if not hypothesis_claims or not reference_claims:
             return 0.0, 0
 
-        # Construct a Single Prompt
+        # 2. Update the prompt to be JSON-compliant (use a root object)
         ref_text = "\n".join([f"- {c}" for c in reference_claims])
         claims_text = "\n".join([f"{i+1}. {c}" for i, c in enumerate(hypothesis_claims)])
         
-        prompt = f"""You are an objective fact-checker.
-        
-Reference Facts:
-{ref_text}
+        prompt = f"""Reference Facts:
+    {ref_text}
 
-Claims to Verify:
-{claims_text}
+    Claims to Verify:
+    {claims_text}
 
-For EACH claim numbered 1 to {len(hypothesis_claims)}, determine if it is supported by the Reference Facts.
-Output ONLY a JSON list of strings, where each entry is "YES" (supported) or "NO" (not supported).
-Do not provide reasoning, preamble, or any other text.
-JSON Output: ["""
+    Return a JSON object with the key "decisions" containing a list of "YES" or "NO" for each claim.
+    Example: {{"decisions": ["YES", "NO"]}}"""
+
         try:
-            # 1. Generate with JSON mode and a tight token limit
+            # 3. Call the model
             response = self.model.generate(
                 prompt, 
-                max_new_tokens=150, 
+                max_new_tokens=1000, 
                 response_format={ "type": "json_object" } 
             ).strip()
             
-            # 2. Parse the JSON string into a Python object
+            # 4. Parse JSON
             data = json.loads(response)
-            
-            # 3. Extract the list (handles both raw list or wrapped dict)
-            if isinstance(data, list):
-                decisions = data
-            elif isinstance(data, dict):
-                # If the model wrapped the list in a key like "decisions" or "results"
-                decisions = next(iter(data.values())) if data.values() else []
-            else:
-                decisions = []
-                
-            # 4. Filter and count
+            decisions = data.get("decisions", [])
             supported_count = sum(1 for d in decisions if str(d).upper() == "YES")
             
         except Exception as e:
-            # Fallback: keep your regex/string count for safety
-            supported_count = response.upper().count('"YES"')
+            # 5. Safe Fallback & Debugging
+            # Now response.upper() won't crash because we set response="" at the top
+            if response:
+                supported_count = response.upper().count('"YES"')
+            
+            # This will now print the REAL error to your console so you can see it
+            print(f"DEBUG: API or JSON Error: {e}") 
 
-        # Metrics
+        # 6. Metrics (Simplified & Safe)
         k = len(reference_claims)
         k_hat = len(hypothesis_claims)
-        if k == 0: return 0.0, 0
         
-        precision = min(1, float(supported_count / (supported_count + (k_hat - supported_count))) if (supported_count + (k_hat - supported_count)) > 0 else 0)
-        recall = min(1, float(supported_count / k))
+        # Precision: S / K-hat
+        precision = min(1.0, supported_count / k_hat) if k_hat > 0 else 0.0
+        # Recall: min(S / K, 1)
+        recall = min(1.0, supported_count / k) if k > 0 else 0.0
         
         if (precision + recall) == 0:
             score = 0.0
         else:
-            score = 2 * precision * recall / (precision + recall)
+            # F1 calculation
+            score = 2 * (precision * recall) / (precision + recall)
         
-        return score, supported_count
+        return score, int(supported_count)
 
 # --- 4. CONFIGURATION ---
 MAX_WORKERS = 6  # Keep low for API stability
@@ -160,7 +155,7 @@ def worker_verify(index, row, afg, verifier, is_abstained, gt_facts):
     try:
         if is_abstained:
             return index, {
-                "prompt": row['prompt'], "domain": row["domain"], "generated_response": row.get('generated_response', ''),
+                "prompt": row['prompt'], "domain": row["serviceDomain"], "generated_response": row.get('generated_response', ''),
                 "is_abstained": True, "score": 0.0, "supported_claims": 0,
                 "afg_k_gen": 0, "afg_k_gt": len(gt_facts),
                 "gen_facts": "[]", "gt_facts": json.dumps(gt_facts)
@@ -173,7 +168,7 @@ def worker_verify(index, row, afg, verifier, is_abstained, gt_facts):
         accuracy_score, supported_count = verifier.verify(gen_facts, gt_facts)
         
         return index, {
-            "prompt": row['prompt'], "domain": row["domain"], "generated_response": gen_response,
+            "prompt": row['prompt'], "domain": row["serviceDomain"], "generated_response": gen_response,
             "is_abstained": False, "score": accuracy_score, "supported_claims": supported_count,
             "afg_k_gen": k_gen, "afg_k_gt": len(gt_facts),
             "gen_facts": json.dumps(gen_facts), "gt_facts": json.dumps(gt_facts)

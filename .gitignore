@@ -6,6 +6,8 @@ nextsteps.md
 randomised_sample_neil.ipynb
 LABEL*
 notes.txt
+preliminary*
+test_results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -78,12 +78,12 @@ class LLMWrapper:
                  input_data: Union[str, List[Dict[str, str]]], 
                  max_new_tokens: int = 1000, 
                  stop_sequences: Optional[List[str]] = None,
-                 return_input_data: bool = False) -> str:
+                 return_input_data: bool = False, **kwargs) -> str:
         temperature = self.temperature
         if self.mode == "mock":
             return self._generate_mock(input_data)
         elif self.mode == "api":
-            return self._generate_api(input_data, max_new_tokens, temperature, stop_sequences, return_input_data)
+            return self._generate_api(input_data, max_new_tokens, temperature, stop_sequences, return_input_data, **kwargs)
         elif self.mode == "hf":
             return self._generate_hf(input_data, max_new_tokens, temperature, return_input_data)
         return ""
@@ -93,7 +93,7 @@ class LLMWrapper:
         logger.debug(f"--- [Mock LLM Call] ---\nInput: {prompt_preview}...\n-----------------------")
         return "Output Output Output"
 
-    def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]], return_input_data: bool) -> str:
+    def _generate_api(self, input_data: Union[str, List[Dict[str, str]]], max_tokens: int, temperature: float, stop: Optional[List[str]], return_input_data: bool, **kwargs) -> str:
         try:
             # LiteLLM expects standard OpenAI-format messages
             messages = [{"role": "user", "content": input_data}] if isinstance(input_data, str) else input_data
@@ -105,7 +105,7 @@ class LLMWrapper:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stop=stop,
-                num_retries=3
+                num_retries=3, **kwargs
             )
             
             # LiteLLM normalizes the output to match OpenAI's format exactly
